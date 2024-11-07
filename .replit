@@ -31,6 +31,10 @@ args = "Setup Admin"
 task = "workflow.run"
 args = "Init DB"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Setup Database"
+
 [[workflows.workflow]]
 name = "Flask Server"
 author = "agent"
@@ -101,6 +105,20 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python init_db.py"
+
+[[workflows.workflow]]
+name = "Setup Database"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python setup_database.py"
 
 [deployment]
 run = ["sh", "-c", "python main.py"]
