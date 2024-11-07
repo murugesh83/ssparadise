@@ -24,11 +24,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const data = await response.json();
                 
-                if (data.available) {
-                    bookingForm.submit();
-                } else {
-                    alert('Sorry, this room is not available for the selected dates.');
+                if (!data.available) {
+                    const message = data.error || 'Sorry, this room is not available for the selected dates.';
+                    alert(message);
+                    return;
                 }
+                
+                bookingForm.submit();
             } catch (error) {
                 console.error('Error:', error);
                 alert('An error occurred. Please try again.');

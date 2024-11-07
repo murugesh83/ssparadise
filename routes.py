@@ -218,12 +218,26 @@ def contact():
 @app.route('/api/check-availability', methods=['POST'])
 def check_availability():
     data = request.json
-    existing_bookings = Booking.query.filter(
-        Booking.room_id == data['room_id'],
-        Booking.check_out >= data['check_in'],
-        Booking.check_in <= data['check_out']
-    ).count()
-    return jsonify({'available': existing_bookings == 0})
+    try:
+        check_in = datetime.strptime(data['check_in'], '%Y-%m-%d').date()
+        check_out = datetime.strptime(data['check_out'], '%Y-%m-%d').date()
+        
+        # Check for existing bookings in the date range
+        existing_bookings = Booking.query.filter(
+            Booking.room_id == data['room_id'],
+            Booking.status != 'cancelled',  # Exclude cancelled bookings
+            db.or_(
+                db.and_(
+                    Booking.check_in <= check_out,
+                    Booking.check_out >= check_in
+                )
+            )
+        ).count()
+        
+        return jsonify({'available': existing_bookings == 0})
+    except Exception as e:
+        app.logger.error(f"Availability check error: {str(e)}")
+        return jsonify({'available': False, 'error': 'Invalid dates'})
 
 @app.route('/admin')
 @login_required
