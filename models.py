@@ -10,6 +10,7 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(100), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     bookings = db.relationship('Booking', backref='user', lazy=True)
+    reviews = db.relationship('Review', backref='user', lazy=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -28,6 +29,13 @@ class Room(db.Model):
     image_url = db.Column(db.String(200))
     available = db.Column(db.Boolean, default=True)
     bookings = db.relationship('Booking', backref='room', lazy=True)
+    reviews = db.relationship('Review', backref='room', lazy=True)
+
+    @property
+    def average_rating(self):
+        if not self.reviews:
+            return 0
+        return sum(review.rating for review in self.reviews) / len(self.reviews)
 
 class Booking(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -51,4 +59,12 @@ class Contact(db.Model):
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), nullable=False)
     message = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Review(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    rating = db.Column(db.Integer, nullable=False)
+    comment = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

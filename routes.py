@@ -1,7 +1,7 @@
 from flask import render_template, request, jsonify, flash, redirect, url_for
 from flask_login import login_user, logout_user, login_required, current_user
 from app import app, db
-from models import Room, Booking, Contact, User
+from models import Room, Booking, Contact, User, Review
 from datetime import datetime
 from email_validator import validate_email, EmailNotValidError
 from payment import create_payment_intent, confirm_payment
@@ -79,7 +79,74 @@ def rooms():
 @app.route('/room/<int:room_id>')
 def room_detail(room_id):
     room = Room.query.get_or_404(room_id)
-    return render_template('room_detail.html', room=room)
+    reviews = Review.query.filter_by(room_id=room_id).order_by(Review.created_at.desc()).all()
+    can_review = False
+    if current_user.is_authenticated:
+        # Check if user has a completed booking for this room
+        completed_booking = Booking.query.filter_by(
+            user_id=current_user.id,
+            room_id=room_id,
+            status='confirmed'
+        ).first()
+        if completed_booking:
+            # Check if user hasn't already reviewed
+            existing_review = Review.query.filter_by(
+                user_id=current_user.id,
+                room_id=room_id
+            ).first()
+            can_review = not existing_review
+    
+    return render_template('room_detail.html', room=room, reviews=reviews, can_review=can_review)
+
+@app.route('/room/<int:room_id>/review', methods=['POST'])
+@login_required
+def submit_review(room_id):
+    room = Room.query.get_or_404(room_id)
+    
+    # Check if user has a confirmed booking
+    booking = Booking.query.filter_by(
+        user_id=current_user.id,
+        room_id=room_id,
+        status='confirmed'
+    ).first()
+    
+    if not booking:
+        flash('You can only review rooms you have stayed in.', 'error')
+        return redirect(url_for('room_detail', room_id=room_id))
+    
+    # Check if user has already reviewed
+    existing_review = Review.query.filter_by(
+        user_id=current_user.id,
+        room_id=room_id
+    ).first()
+    
+    if existing_review:
+        flash('You have already reviewed this room.', 'error')
+        return redirect(url_for('room_detail', room_id=room_id))
+    
+    rating = int(request.form.get('rating', 0))
+    comment = request.form.get('comment', '').strip()
+    
+    if not (1 <= rating <= 5):
+        flash('Please provide a rating between 1 and 5.', 'error')
+        return redirect(url_for('room_detail', room_id=room_id))
+    
+    if not comment:
+        flash('Please provide a review comment.', 'error')
+        return redirect(url_for('room_detail', room_id=room_id))
+    
+    review = Review(
+        room_id=room_id,
+        user_id=current_user.id,
+        rating=rating,
+        comment=comment
+    )
+    
+    db.session.add(review)
+    db.session.commit()
+    
+    flash('Thank you for your review!', 'success')
+    return redirect(url_for('room_detail', room_id=room_id))
 
 @app.route('/booking/<int:room_id>', methods=['GET', 'POST'])
 @login_required

@@ -20,6 +20,16 @@
                 <div class="card-body">
                     <h5 class="card-title">{{ room.name }}</h5>
                     <p class="room-type text-muted">{{ room.room_type }}</p>
+                    <div class="mb-2">
+                        {% for i in range(5) %}
+                            {% if i < room.average_rating|round(0, 'floor') %}
+                                <i class="bi bi-star-fill text-warning"></i>
+                            {% else %}
+                                <i class="bi bi-star text-warning"></i>
+                            {% endif %}
+                        {% endfor %}
+                        <span class="ms-1">{{ "%.1f"|format(room.average_rating) }} ({{ room.reviews|length }})</span>
+                    </div>
                     <p class="card-text">{{ room.description[:150] }}...</p>
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="h5 mb-0">₹{{ "%.2f"|format(room.price) }}/night</span>
@@ -37,4 +47,8 @@
         {% endfor %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
 {% endblock %}
