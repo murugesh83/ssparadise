@@ -6,6 +6,7 @@ from datetime import datetime
 from email_validator import validate_email, EmailNotValidError
 from payment import create_payment_intent, confirm_payment
 from utils import admin_required
+from email_utils import send_booking_confirmation, send_booking_status_update
 import stripe
 
 @app.route('/')
@@ -165,6 +166,12 @@ def booking(room_id):
 
             payment_intent = create_payment_intent(booking.id)
             
+            # Send booking confirmation email
+            if send_booking_confirmation(booking):
+                flash('Booking confirmation email sent.', 'success')
+            else:
+                flash('Could not send confirmation email, but your booking is confirmed.', 'warning')
+            
             return render_template('payment.html', 
                                  booking=booking,
                                  client_secret=payment_intent.client_secret,
@@ -190,7 +197,13 @@ def stripe_webhook():
 
     if event['type'] == 'payment_intent.succeeded':
         payment_intent = event['data']['object']
-        confirm_payment(payment_intent.id)
+        booking = Booking.query.filter_by(payment_intent_id=payment_intent.id).first()
+        if booking and confirm_payment(payment_intent.id):
+            # Send status update email
+            if send_booking_status_update(booking):
+                app.logger.info(f"Payment confirmation email sent for booking {booking.id}")
+            else:
+                app.logger.warning(f"Could not send payment confirmation email for booking {booking.id}")
 
     return jsonify({'status': 'success'})
 
@@ -317,10 +330,41 @@ def admin_update_booking(booking_id):
         data = request.get_json()
         booking.status = data.get('status')
         db.session.commit()
+        
+        # Send status update email
+        if send_booking_status_update(booking):
+            app.logger.info(f"Status update email sent for booking {booking.id}")
+        else:
+            app.logger.warning(f"Could not send status update email for booking {booking.id}")
+        
         return jsonify({'success': True})
     except Exception as e:
         app.logger.error(f"Error updating booking: {str(e)}")
         return jsonify({'success': False})
+
+@app.route('/api/check-availability', methods=['POST'])
+def check_availability():
+    data = request.json
+    try:
+        check_in = datetime.strptime(data['check_in'], '%Y-%m-%d').date()
+        check_out = datetime.strptime(data['check_out'], '%Y-%m-%d').date()
+        
+        # Check for existing bookings in the date range
+        existing_bookings = Booking.query.filter(
+            Booking.room_id == data['room_id'],
+            Booking.status != 'cancelled',  # Exclude cancelled bookings
+            db.or_(
+                db.and_(
+                    Booking.check_in <= check_out,
+                    Booking.check_out >= check_in
+                )
+            )
+        ).count()
+        
+        return jsonify({'available': existing_bookings == 0})
+    except Exception as e:
+        app.logger.error(f"Availability check error: {str(e)}")
+        return jsonify({'available': False, 'error': 'Invalid dates'})
 
 def calculate_occupancy_rate():
     total_rooms = Room.query.count()
@@ -350,27 +394,3 @@ def get_recent_activity():
     
     activities.sort(key=lambda x: x['timestamp'], reverse=True)
     return activities[:5]
-
-@app.route('/api/check-availability', methods=['POST'])
-def check_availability():
-    data = request.json
-    try:
-        check_in = datetime.strptime(data['check_in'], '%Y-%m-%d').date()
-        check_out = datetime.strptime(data['check_out'], '%Y-%m-%d').date()
-        
-        # Check for existing bookings in the date range
-        existing_bookings = Booking.query.filter(
-            Booking.room_id == data['room_id'],
-            Booking.status != 'cancelled',  # Exclude cancelled bookings
-            db.or_(
-                db.and_(
-                    Booking.check_in <= check_out,
-                    Booking.check_out >= check_in
-                )
-            )
-        ).count()
-        
-        return jsonify({'available': existing_bookings == 0})
-    except Exception as e:
-        app.logger.error(f"Availability check error: {str(e)}")
-        return jsonify({'available': False, 'error': 'Invalid dates'})

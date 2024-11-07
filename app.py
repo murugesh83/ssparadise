@@ -3,6 +3,7 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from flask_login import LoginManager
+from email_utils import init_mail_app
 
 class Base(DeclarativeBase):
     pass
@@ -30,6 +31,9 @@ db.init_app(app)
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message_category = 'info'
+
+# Initialize email
+init_mail_app(app)
 
 @login_manager.user_loader
 def load_user(user_id):
