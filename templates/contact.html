@@ -47,29 +47,18 @@
                     </p>
                 </div>
             </div>
-            <div class="location-map" id="map">
-                <!-- Map will be loaded here -->
+            <div class="location-map">
+                <iframe 
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d495.4709106926528!2d79.06138969825528!3d12.224700492766504!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bacc07c2ee258d9%3A0xc2234e0a966ef43!2s63F6%2BXFW%2C%20Thamarai%20Nagar%2C%20Tiruvannamalai%2C%20Tamil%20Nadu%20606601%2C%20India!5e0!3m2!1sen!2sus!4v1727102215189!5m2!1sen!2sus"
+                    width="100%" 
+                    height="400" 
+                    style="border:0;" 
+                    allowfullscreen="" 
+                    loading="lazy" 
+                    referrerpolicy="no-referrer-when-downgrade">
+                </iframe>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
-<script>
-    function initMap() {
-        const location = { lat: 12.2253, lng: 79.0747 }; // Tiruvannamalai coordinates
-        const map = new google.maps.Map(document.getElementById('map'), {
-            zoom: 15,
-            center: location,
-        });
-        const marker = new google.maps.Marker({
-            position: location,
-            map: map,
-            title: 'SS Paradise Residency'
-        });
-    }
-    window.onload = initMap;
-</script>
 {% endblock %}
