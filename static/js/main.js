@@ -29,12 +29,14 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
             const href = this.getAttribute('href');
+            // Only handle valid href values that are not just "#"
             if (href && href !== '#' && href.length > 1) {
-                const element = document.querySelector(href);
-                if (element) {
+                const targetElement = document.querySelector(href);
+                if (targetElement) {
                     e.preventDefault();
-                    element.scrollIntoView({
-                        behavior: 'smooth'
+                    targetElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
                     });
                 }
             }
