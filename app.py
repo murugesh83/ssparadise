@@ -14,7 +14,7 @@ app = Flask(__name__)
 
 # Configuration settings
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or "ss_paradise_secret_key"
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///ss_paradise.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["DEBUG"] = True  # Enable debug mode
 app.config["HOST"] = "0.0.0.0"  # Listen on all interfaces

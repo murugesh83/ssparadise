@@ -10,7 +10,9 @@ import stripe
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    # Fetch featured rooms
+    featured_rooms = Room.query.filter_by(available=True).order_by(Room.id).limit(4).all()
+    return render_template('index.html', featured_rooms=featured_rooms)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -215,7 +217,6 @@ def contact():
             flash('Error sending message. Please try again.', 'error')
     return render_template('contact.html')
 
-# Admin Routes
 @app.route('/admin')
 @login_required
 @admin_required
