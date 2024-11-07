@@ -41,8 +41,6 @@ from routes import *
 
 # Create database tables
 with app.app_context():
-    # Drop all tables and recreate them
-    db.drop_all()
     db.create_all()
 
 if __name__ == "__main__":
