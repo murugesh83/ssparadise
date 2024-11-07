@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}My Bookings{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">My Bookings</h1>
+    {% if bookings %}
+        <div class="row">
+            {% for booking in bookings %}
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ booking.room.name }}</h5>
+                        <p class="card-text">
+                            <strong>Check-in:</strong> {{ booking.check_in.strftime('%Y-%m-%d') }}<br>
+                            <strong>Check-out:</strong> {{ booking.check_out.strftime('%Y-%m-%d') }}<br>
+                            <strong>Guests:</strong> {{ booking.guests }}<br>
+                            <strong>Status:</strong> 
+                            <span class="badge {% if booking.status == 'confirmed' %}bg-success{% else %}bg-warning{% endif %}">
+                                {{ booking.status.title() }}
+                            </span>
+                        </p>
+                        <small class="text-muted">Booked on: {{ booking.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            You haven't made any bookings yet. <a href="{{ url_for('rooms') }}">Browse our rooms</a> to make a booking.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
