@@ -29,7 +29,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
             const href = this.getAttribute('href');
-            // Only handle valid href values
             if (href && href !== '#' && href.length > 1) {
                 const element = document.querySelector(href);
                 if (element) {

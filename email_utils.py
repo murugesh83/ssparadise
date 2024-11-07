@@ -48,8 +48,8 @@ def init_mail_app(app):
     app.config['MAIL_PORT'] = 587
     app.config['MAIL_USE_TLS'] = True
     app.config['MAIL_USERNAME'] = os.environ.get('SMTP_USERNAME')
-    app.config['MAIL_PASSWORD'] = os.environ.get('SMTP_PASSWORD')
-    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('SMTP_USERNAME')
+    app.config['MAIL_PASSWORD'] = os.environ.get('SMTP_PASSWORD', 'vupb vwoz wtmd newf')
+    app.config['MAIL_DEFAULT_SENDER'] = ('SS Paradise Residency', os.environ.get('SMTP_USERNAME'))
     mail.init_app(app)
 
 def send_booking_confirmation(booking):
