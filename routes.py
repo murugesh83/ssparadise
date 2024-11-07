@@ -215,30 +215,7 @@ def contact():
             flash('Error sending message. Please try again.', 'error')
     return render_template('contact.html')
 
-@app.route('/api/check-availability', methods=['POST'])
-def check_availability():
-    data = request.json
-    try:
-        check_in = datetime.strptime(data['check_in'], '%Y-%m-%d').date()
-        check_out = datetime.strptime(data['check_out'], '%Y-%m-%d').date()
-        
-        # Check for existing bookings in the date range
-        existing_bookings = Booking.query.filter(
-            Booking.room_id == data['room_id'],
-            Booking.status != 'cancelled',  # Exclude cancelled bookings
-            db.or_(
-                db.and_(
-                    Booking.check_in <= check_out,
-                    Booking.check_out >= check_in
-                )
-            )
-        ).count()
-        
-        return jsonify({'available': existing_bookings == 0})
-    except Exception as e:
-        app.logger.error(f"Availability check error: {str(e)}")
-        return jsonify({'available': False, 'error': 'Invalid dates'})
-
+# Admin Routes
 @app.route('/admin')
 @login_required
 @admin_required
@@ -257,35 +234,6 @@ def admin_dashboard():
     recent_activity = get_recent_activity()
     
     return render_template('admin/dashboard.html', stats=stats, recent_activity=recent_activity)
-
-def calculate_occupancy_rate():
-    total_rooms = Room.query.count()
-    if total_rooms == 0:
-        return 0
-    
-    occupied_rooms = Booking.query.filter(
-        Booking.status == 'confirmed',
-        Booking.check_in <= datetime.now(),
-        Booking.check_out >= datetime.now()
-    ).count()
-    
-    return (occupied_rooms / total_rooms) * 100
-
-def get_recent_activity():
-    activities = []
-    
-    recent_bookings = Booking.query.order_by(Booking.created_at.desc()).limit(5).all()
-    for booking in recent_bookings:
-        activities.append({
-            'timestamp': booking.created_at,
-            'event_type': 'New Booking',
-            'details': f'Room: {booking.room.name}, Guest: {booking.guest_name}',
-            'status': booking.status,
-            'status_color': 'success' if booking.status == 'confirmed' else 'warning'
-        })
-    
-    activities.sort(key=lambda x: x['timestamp'], reverse=True)
-    return activities[:5]
 
 @app.route('/admin/rooms')
 @login_required
@@ -317,19 +265,6 @@ def admin_add_room():
         app.logger.error(f"Error adding room: {str(e)}")
     return redirect(url_for('admin_rooms'))
 
-@app.route('/admin/rooms/<int:room_id>/delete', methods=['POST'])
-@login_required
-@admin_required
-def admin_delete_room(room_id):
-    try:
-        room = Room.query.get_or_404(room_id)
-        db.session.delete(room)
-        db.session.commit()
-        return jsonify({'success': True})
-    except Exception as e:
-        app.logger.error(f"Error deleting room: {str(e)}")
-        return jsonify({'success': False})
-
 @app.route('/admin/rooms/<int:room_id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -352,6 +287,19 @@ def admin_edit_room(room_id):
             app.logger.error(f"Error updating room: {str(e)}")
     return render_template('admin/edit_room.html', room=room)
 
+@app.route('/admin/rooms/<int:room_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def admin_delete_room(room_id):
+    try:
+        room = Room.query.get_or_404(room_id)
+        db.session.delete(room)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        app.logger.error(f"Error deleting room: {str(e)}")
+        return jsonify({'success': False})
+
 @app.route('/admin/bookings')
 @login_required
 @admin_required
@@ -372,3 +320,56 @@ def admin_update_booking(booking_id):
     except Exception as e:
         app.logger.error(f"Error updating booking: {str(e)}")
         return jsonify({'success': False})
+
+def calculate_occupancy_rate():
+    total_rooms = Room.query.count()
+    if total_rooms == 0:
+        return 0
+    
+    occupied_rooms = Booking.query.filter(
+        Booking.status == 'confirmed',
+        Booking.check_in <= datetime.now(),
+        Booking.check_out >= datetime.now()
+    ).count()
+    
+    return (occupied_rooms / total_rooms) * 100
+
+def get_recent_activity():
+    activities = []
+    
+    recent_bookings = Booking.query.order_by(Booking.created_at.desc()).limit(5).all()
+    for booking in recent_bookings:
+        activities.append({
+            'timestamp': booking.created_at,
+            'event_type': 'New Booking',
+            'details': f'Room: {booking.room.name}, Guest: {booking.guest_name}',
+            'status': booking.status,
+            'status_color': 'success' if booking.status == 'confirmed' else 'warning'
+        })
+    
+    activities.sort(key=lambda x: x['timestamp'], reverse=True)
+    return activities[:5]
+
+@app.route('/api/check-availability', methods=['POST'])
+def check_availability():
+    data = request.json
+    try:
+        check_in = datetime.strptime(data['check_in'], '%Y-%m-%d').date()
+        check_out = datetime.strptime(data['check_out'], '%Y-%m-%d').date()
+        
+        # Check for existing bookings in the date range
+        existing_bookings = Booking.query.filter(
+            Booking.room_id == data['room_id'],
+            Booking.status != 'cancelled',  # Exclude cancelled bookings
+            db.or_(
+                db.and_(
+                    Booking.check_in <= check_out,
+                    Booking.check_out >= check_in
+                )
+            )
+        ).count()
+        
+        return jsonify({'available': existing_bookings == 0})
+    except Exception as e:
+        app.logger.error(f"Availability check error: {str(e)}")
+        return jsonify({'available': False, 'error': 'Invalid dates'})
