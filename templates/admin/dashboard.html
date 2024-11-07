@@ -4,24 +4,156 @@
 
 {% block content %}
 <div class="container mt-5">
-    <h1>Admin Dashboard</h1>
-    <div class="row mt-4">
-        <div class="col-md-6 mb-4">
+    <h1 class="mb-4">Admin Dashboard</h1>
+    
+    <!-- Statistics Overview -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Rooms</h5>
+                    <h2 class="mb-0">{{ stats.total_rooms }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Active Bookings</h5>
+                    <h2 class="mb-0">{{ stats.active_bookings }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Today's Revenue</h5>
+                    <h2 class="mb-0">₹{{ "%.2f"|format(stats.daily_revenue) }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Occupancy Rate</h5>
+                    <h2 class="mb-0">{{ "%.1f"|format(stats.occupancy_rate) }}%</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-md-6">
             <div class="card h-100">
                 <div class="card-body">
                     <h5 class="card-title">Room Management</h5>
                     <p class="card-text">Manage hotel rooms, their details, and availability.</p>
-                    <a href="{{ url_for('admin_rooms') }}" class="btn btn-primary">Manage Rooms</a>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('admin_rooms') }}" class="btn btn-primary">Manage Rooms</a>
+                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addRoomModal">
+                            Add New Room
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-6 mb-4">
+        <div class="col-md-6">
             <div class="card h-100">
                 <div class="card-body">
                     <h5 class="card-title">Booking Management</h5>
                     <p class="card-text">View and manage all bookings and their status.</p>
-                    <a href="{{ url_for('admin_bookings') }}" class="btn btn-primary">Manage Bookings</a>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('admin_bookings') }}" class="btn btn-primary">View All Bookings</a>
+                        <a href="{{ url_for('admin_bookings') }}?status=pending" class="btn btn-outline-warning">View Pending Bookings</a>
+                    </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Recent Activity</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Event</th>
+                            <th>Details</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for activity in recent_activity %}
+                        <tr>
+                            <td>{{ activity.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ activity.event_type }}</td>
+                            <td>{{ activity.details }}</td>
+                            <td>
+                                <span class="badge bg-{{ activity.status_color }}">
+                                    {{ activity.status }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Room Modal -->
+<div class="modal fade" id="addRoomModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Room</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addRoomForm" action="{{ url_for('admin_add_room') }}" method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Room Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="room_type" class="form-label">Room Type</label>
+                        <select class="form-select" id="room_type" name="room_type" required>
+                            <option value="Single">Single Room</option>
+                            <option value="Double">Double Room</option>
+                            <option value="Suite">Suite</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="price" class="form-label">Price per Night (₹)</label>
+                        <input type="number" class="form-control" id="price" name="price" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="capacity" class="form-label">Capacity</label>
+                        <input type="number" class="form-control" id="capacity" name="capacity" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="image_url" class="form-label">Image URL</label>
+                        <input type="url" class="form-control" id="image_url" name="image_url" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="available" name="available" checked>
+                            <label class="form-check-label" for="available">Available for Booking</label>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Room</button>
+                </form>
             </div>
         </div>
     </div>

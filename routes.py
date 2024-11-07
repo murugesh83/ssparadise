@@ -23,11 +23,9 @@ def register():
         name = request.form['name']
         
         try:
-            # Validate email
             valid = validate_email(email)
             email = valid.email
             
-            # Check if user already exists
             if User.query.filter_by(email=email).first():
                 flash('Email already registered. Please login.', 'error')
                 return redirect(url_for('login'))
@@ -83,14 +81,12 @@ def room_detail(room_id):
     reviews = Review.query.filter_by(room_id=room_id).order_by(Review.created_at.desc()).all()
     can_review = False
     if current_user.is_authenticated:
-        # Check if user has a completed booking for this room
         completed_booking = Booking.query.filter_by(
             user_id=current_user.id,
             room_id=room_id,
             status='confirmed'
         ).first()
         if completed_booking:
-            # Check if user hasn't already reviewed
             existing_review = Review.query.filter_by(
                 user_id=current_user.id,
                 room_id=room_id
@@ -104,7 +100,6 @@ def room_detail(room_id):
 def submit_review(room_id):
     room = Room.query.get_or_404(room_id)
     
-    # Check if user has a confirmed booking
     booking = Booking.query.filter_by(
         user_id=current_user.id,
         room_id=room_id,
@@ -115,7 +110,6 @@ def submit_review(room_id):
         flash('You can only review rooms you have stayed in.', 'error')
         return redirect(url_for('room_detail', room_id=room_id))
     
-    # Check if user has already reviewed
     existing_review = Review.query.filter_by(
         user_id=current_user.id,
         room_id=room_id
@@ -167,7 +161,6 @@ def booking(room_id):
             db.session.add(booking)
             db.session.commit()
 
-            # Create payment intent
             payment_intent = create_payment_intent(booking.id)
             
             return render_template('payment.html', 
@@ -232,12 +225,53 @@ def check_availability():
     ).count()
     return jsonify({'available': existing_bookings == 0})
 
-# Admin routes
 @app.route('/admin')
 @login_required
 @admin_required
 def admin_dashboard():
-    return render_template('admin/dashboard.html')
+    stats = {
+        'total_rooms': Room.query.count(),
+        'active_bookings': Booking.query.filter_by(status='confirmed').count(),
+        'daily_revenue': db.session.query(db.func.sum(Room.price)).join(Booking).filter(
+            Booking.status == 'confirmed',
+            Booking.check_in <= datetime.now(),
+            Booking.check_out >= datetime.now()
+        ).scalar() or 0,
+        'occupancy_rate': calculate_occupancy_rate()
+    }
+    
+    recent_activity = get_recent_activity()
+    
+    return render_template('admin/dashboard.html', stats=stats, recent_activity=recent_activity)
+
+def calculate_occupancy_rate():
+    total_rooms = Room.query.count()
+    if total_rooms == 0:
+        return 0
+    
+    occupied_rooms = Booking.query.filter(
+        Booking.status == 'confirmed',
+        Booking.check_in <= datetime.now(),
+        Booking.check_out >= datetime.now()
+    ).count()
+    
+    return (occupied_rooms / total_rooms) * 100
+
+def get_recent_activity():
+    activities = []
+    
+    recent_bookings = Booking.query.order_by(Booking.created_at.desc()).limit(5).all()
+    for booking in recent_bookings:
+        activities.append({
+            'timestamp': booking.created_at,
+            'event_type': 'New Booking',
+            'details': f'Room: {booking.room.name}, Guest: {booking.guest_name}',
+            'status': booking.status,
+            'status_color': 'success' if booking.status == 'confirmed' else 'warning'
+        })
+    
+    activities.sort(key=lambda x: x['timestamp'], reverse=True)
+    return activities[:5]
 
 @app.route('/admin/rooms')
 @login_required
@@ -259,7 +293,7 @@ def admin_add_room():
             room_type=request.form['room_type'],
             image_url=request.form['image_url'],
             available='available' in request.form,
-            amenities=[]  # Add default amenities or get from form
+            amenities=[]
         )
         db.session.add(room)
         db.session.commit()
