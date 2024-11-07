@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - Booking Management{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1>Booking Management</h1>
+    
+    <div class="table-responsive mt-4">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Room</th>
+                    <th>Guest</th>
+                    <th>Check-in</th>
+                    <th>Check-out</th>
+                    <th>Status</th>
+                    <th>Payment</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for booking in bookings %}
+                <tr>
+                    <td>{{ booking.id }}</td>
+                    <td>{{ booking.room.name }}</td>
+                    <td>
+                        {{ booking.guest_name }}<br>
+                        <small class="text-muted">{{ booking.guest_email }}</small>
+                    </td>
+                    <td>{{ booking.check_in.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ booking.check_out.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        <span class="badge {% if booking.status == 'confirmed' %}bg-success{% else %}bg-warning{% endif %}">
+                            {{ booking.status.title() }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge {% if booking.payment_status == 'completed' %}bg-success{% else %}bg-warning{% endif %}">
+                            {{ booking.payment_status.title() }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-success" onclick="updateBookingStatus({{ booking.id }}, 'confirmed')"
+                                    {% if booking.status == 'confirmed' %}disabled{% endif %}>
+                                Confirm
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="updateBookingStatus({{ booking.id }}, 'cancelled')"
+                                    {% if booking.status == 'cancelled' %}disabled{% endif %}>
+                                Cancel
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateBookingStatus(bookingId, status) {
+    fetch(`/admin/bookings/${bookingId}/update`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: status })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error updating booking status');
+        }
+    });
+}
+</script>
+{% endblock %}

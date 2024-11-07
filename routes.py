@@ -5,6 +5,7 @@ from models import Room, Booking, Contact, User, Review
 from datetime import datetime
 from email_validator import validate_email, EmailNotValidError
 from payment import create_payment_intent, confirm_payment
+from utils import admin_required
 import stripe
 
 @app.route('/')
@@ -230,3 +231,74 @@ def check_availability():
         Booking.check_in <= data['check_out']
     ).count()
     return jsonify({'available': existing_bookings == 0})
+
+# Admin routes
+@app.route('/admin')
+@login_required
+@admin_required
+def admin_dashboard():
+    return render_template('admin/dashboard.html')
+
+@app.route('/admin/rooms')
+@login_required
+@admin_required
+def admin_rooms():
+    rooms = Room.query.all()
+    return render_template('admin/rooms.html', rooms=rooms)
+
+@app.route('/admin/rooms/add', methods=['POST'])
+@login_required
+@admin_required
+def admin_add_room():
+    try:
+        room = Room(
+            name=request.form['name'],
+            description=request.form['description'],
+            price=float(request.form['price']),
+            capacity=int(request.form['capacity']),
+            room_type=request.form['room_type'],
+            image_url=request.form['image_url'],
+            available='available' in request.form,
+            amenities=[]  # Add default amenities or get from form
+        )
+        db.session.add(room)
+        db.session.commit()
+        flash('Room added successfully!', 'success')
+    except Exception as e:
+        flash('Error adding room.', 'error')
+        app.logger.error(f"Error adding room: {str(e)}")
+    return redirect(url_for('admin_rooms'))
+
+@app.route('/admin/rooms/<int:room_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def admin_delete_room(room_id):
+    try:
+        room = Room.query.get_or_404(room_id)
+        db.session.delete(room)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        app.logger.error(f"Error deleting room: {str(e)}")
+        return jsonify({'success': False})
+
+@app.route('/admin/bookings')
+@login_required
+@admin_required
+def admin_bookings():
+    bookings = Booking.query.order_by(Booking.created_at.desc()).all()
+    return render_template('admin/bookings.html', bookings=bookings)
+
+@app.route('/admin/bookings/<int:booking_id>/update', methods=['POST'])
+@login_required
+@admin_required
+def admin_update_booking(booking_id):
+    try:
+        booking = Booking.query.get_or_404(booking_id)
+        data = request.get_json()
+        booking.status = data.get('status')
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        app.logger.error(f"Error updating booking: {str(e)}")
+        return jsonify({'success': False})

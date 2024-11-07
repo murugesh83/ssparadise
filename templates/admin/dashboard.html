@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1>Admin Dashboard</h1>
+    <div class="row mt-4">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Room Management</h5>
+                    <p class="card-text">Manage hotel rooms, their details, and availability.</p>
+                    <a href="{{ url_for('admin_rooms') }}" class="btn btn-primary">Manage Rooms</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Booking Management</h5>
+                    <p class="card-text">View and manage all bookings and their status.</p>
+                    <a href="{{ url_for('admin_bookings') }}" class="btn btn-primary">Manage Bookings</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

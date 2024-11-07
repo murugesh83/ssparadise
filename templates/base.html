@@ -26,6 +26,11 @@
                     <li class="nav-item">
                         <a class="nav-link" href="/contact">Contact</a>
                     </li>
+                    {% if current_user.is_authenticated and current_user.is_admin %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin_dashboard') }}">Admin</a>
+                    </li>
+                    {% endif %}
                 </ul>
                 <ul class="navbar-nav">
                     {% if current_user.is_authenticated %}
@@ -35,8 +40,15 @@
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
                                 {{ current_user.name }}
+                                {% if current_user.is_admin %}
+                                <span class="badge bg-danger">Admin</span>
+                                {% endif %}
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end">
+                                {% if current_user.is_admin %}
+                                <li><a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                {% endif %}
                                 <li><a class="dropdown-item" href="{{ url_for('logout') }}">Logout</a></li>
                             </ul>
                         </li>
