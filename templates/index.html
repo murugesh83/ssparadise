@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome{% endblock %}
+
+{% block content %}
+<div class="hero-section text-center">
+    <div class="container">
+        <h1>Experience Our Luxurious Rooms in Tiruvannamalai</h1>
+        <p class="lead">
+            SS Paradise Residency is a newly established sanctuary offering luxurious A/C rooms in Tiruvannamalai, India.
+        </p>
+        <a href="/rooms" class="btn btn-primary btn-lg">View Our Rooms</a>
+    </div>
+</div>
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-6">
+            <h2>About Us</h2>
+            <p>Nestled in the heart of this spiritual and cultural center, our residency combines comfort with a serene ambiance, providing a unique hospitality experience. Conveniently located just 0.8 km from the renowned Arunachaleswarar Shiva Temple and a mere 300 feet from the tranquil Ramana Ashram.</p>
+        </div>
+        <div class="col-md-6">
+            <h2>Our Features</h2>
+            <ul class="list-group">
+                <li class="list-group-item">Luxurious A/C Rooms</li>
+                <li class="list-group-item">Prime Location</li>
+                <li class="list-group-item">24/7 Room Service</li>
+                <li class="list-group-item">Free Wi-Fi</li>
+                <li class="list-group-item">Modern Amenities</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="container mt-5">
+    <h2 class="text-center mb-4">Featured Rooms</h2>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card room-card">
+                <img src="https://example.com/deluxe-room.jpg" class="card-img-top room-image" alt="Deluxe Room">
+                <div class="card-body">
+                    <h5 class="card-title">Deluxe Room</h5>
+                    <p class="card-text">Spacious room with modern amenities and comfortable furnishing.</p>
+                    <a href="/rooms" class="btn btn-primary">View Details</a>
+                </div>
+            </div>
+        </div>
+        <!-- Add more featured rooms -->
+    </div>
+</div>
+{% endblock %}

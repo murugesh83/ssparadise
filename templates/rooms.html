@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Our Rooms{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="text-center mb-4">Our Rooms</h1>
+    
+    <div class="row mb-4">
+        <div class="col-md-6 mx-auto">
+            <input type="text" id="roomFilter" class="form-control" placeholder="Search rooms by name or type...">
+        </div>
+    </div>
+
+    <div class="row">
+        {% for room in rooms %}
+        <div class="col-md-4 mb-4">
+            <div class="card room-card h-100">
+                <img src="{{ room.image_url }}" class="card-img-top room-image" alt="{{ room.name }}">
+                <div class="card-body">
+                    <h5 class="card-title">{{ room.name }}</h5>
+                    <p class="room-type text-muted">{{ room.room_type }}</p>
+                    <p class="card-text">{{ room.description[:150] }}...</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="h5 mb-0">₹{{ "%.2f"|format(room.price) }}/night</span>
+                        <span class="badge bg-info">{{ room.capacity }} Guests</span>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-top-0">
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('room_detail', room_id=room.id) }}" class="btn btn-outline-primary">View Details</a>
+                        <a href="{{ url_for('booking', room_id=room.id) }}" class="btn btn-primary">Book Now</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

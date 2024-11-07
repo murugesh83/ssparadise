@@ -1,0 +1,56 @@
+:root {
+    --primary-color: #4a90e2;
+    --secondary-color: #f5a623;
+}
+
+.hero-section {
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 4rem 0;
+    color: white;
+}
+
+.room-card {
+    transition: transform 0.3s ease;
+    margin-bottom: 2rem;
+}
+
+.room-card:hover {
+    transform: translateY(-5px);
+}
+
+.room-image {
+    height: 200px;
+    object-fit: cover;
+}
+
+.amenities-list {
+    list-style: none;
+    padding-left: 0;
+}
+
+.booking-form {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.contact-section {
+    background-color: #f8f9fa;
+    padding: 4rem 0;
+}
+
+.location-map {
+    height: 400px;
+    width: 100%;
+    margin-top: 2rem;
+}
+
+@media (max-width: 768px) {
+    .hero-section {
+        padding: 2rem 0;
+    }
+    
+    .room-image {
+        height: 150px;
+    }
+}
