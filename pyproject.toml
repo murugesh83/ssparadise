@@ -11,4 +11,5 @@ dependencies = [
     "flask-wtf>=1.2.2",
     "psycopg2-binary>=2.9.10",
     "werkzeug>=3.1.2",
+    "stripe>=11.2.0",
 ]

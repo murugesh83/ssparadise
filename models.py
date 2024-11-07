@@ -40,6 +40,11 @@ class Booking(db.Model):
     guests = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     status = db.Column(db.String(20), default='pending')
+    # New payment-related fields
+    payment_status = db.Column(db.String(20), default='pending')
+    payment_intent_id = db.Column(db.String(100))
+    amount_paid = db.Column(db.Float)
+    payment_date = db.Column(db.DateTime)
 
 class Contact(db.Model):
     id = db.Column(db.Integer, primary_key=True)

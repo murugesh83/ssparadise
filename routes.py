@@ -4,6 +4,8 @@ from app import app, db
 from models import Room, Booking, Contact, User
 from datetime import datetime
 from email_validator import validate_email, EmailNotValidError
+from payment import create_payment_intent, confirm_payment
+import stripe
 
 @app.route('/')
 def index():
@@ -96,11 +98,38 @@ def booking(room_id):
             )
             db.session.add(booking)
             db.session.commit()
-            flash('Booking request submitted successfully!', 'success')
-            return redirect(url_for('my_bookings'))
+
+            # Create payment intent
+            payment_intent = create_payment_intent(booking.id)
+            
+            return render_template('payment.html', 
+                                 booking=booking,
+                                 client_secret=payment_intent.client_secret,
+                                 publishable_key=app.config['STRIPE_PUBLISHABLE_KEY'])
         except Exception as e:
             flash('Error processing booking. Please try again.', 'error')
+            app.logger.error(f"Booking error: {str(e)}")
     return render_template('booking.html', room=room)
+
+@app.route('/webhook/stripe', methods=['POST'])
+def stripe_webhook():
+    payload = request.get_data()
+    sig_header = request.headers.get('Stripe-Signature')
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, app.config['STRIPE_WEBHOOK_SECRET']
+        )
+    except ValueError as e:
+        return 'Invalid payload', 400
+    except stripe.error.SignatureVerificationError as e:
+        return 'Invalid signature', 400
+
+    if event['type'] == 'payment_intent.succeeded':
+        payment_intent = event['data']['object']
+        confirm_payment(payment_intent.id)
+
+    return jsonify({'status': 'success'})
 
 @app.route('/my-bookings')
 @login_required

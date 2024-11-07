@@ -20,6 +20,11 @@ app.config["DEBUG"] = True  # Enable debug mode
 app.config["HOST"] = "0.0.0.0"  # Listen on all interfaces
 app.config["PORT"] = 5000
 
+# Stripe Configuration
+app.config["STRIPE_PUBLISHABLE_KEY"] = os.environ.get("STRIPE_PUBLISHABLE_KEY")
+app.config["STRIPE_SECRET_KEY"] = os.environ.get("STRIPE_SECRET_KEY")
+app.config["STRIPE_WEBHOOK_SECRET"] = os.environ.get("STRIPE_WEBHOOK_SECRET", "whsec_test")
+
 # Initialize extensions
 db.init_app(app)
 login_manager.init_app(app)
