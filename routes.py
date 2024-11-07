@@ -282,6 +282,28 @@ def admin_delete_room(room_id):
         app.logger.error(f"Error deleting room: {str(e)}")
         return jsonify({'success': False})
 
+@app.route('/admin/rooms/<int:room_id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_edit_room(room_id):
+    room = Room.query.get_or_404(room_id)
+    if request.method == 'POST':
+        try:
+            room.name = request.form['name']
+            room.description = request.form['description']
+            room.price = float(request.form['price'])
+            room.capacity = int(request.form['capacity'])
+            room.room_type = request.form['room_type']
+            room.image_url = request.form['image_url']
+            room.available = 'available' in request.form
+            db.session.commit()
+            flash('Room updated successfully!', 'success')
+            return redirect(url_for('admin_rooms'))
+        except Exception as e:
+            flash('Error updating room.', 'error')
+            app.logger.error(f"Error updating room: {str(e)}")
+    return render_template('admin/edit_room.html', room=room)
+
 @app.route('/admin/bookings')
 @login_required
 @admin_required
