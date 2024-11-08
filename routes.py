@@ -287,3 +287,28 @@ def admin_update_booking(booking_id):
     except Exception as e:
         db.session.rollback()
         return jsonify(success=False, error=str(e))
+
+@app.route('/api/check-availability', methods=['POST'])
+def check_availability():
+    try:
+        data = request.json
+        room_id = data.get('room_id')
+        check_in = datetime.strptime(data.get('check_in'), '%Y-%m-%d').date()
+        check_out = datetime.strptime(data.get('check_out'), '%Y-%m-%d').date()
+        
+        # Check if dates are valid
+        if check_in >= check_out:
+            return jsonify({'available': False, 'error': 'Check-out date must be after check-in date'})
+            
+        # Check if there are any overlapping bookings
+        conflicting_bookings = Booking.query.filter(
+            Booking.room_id == room_id,
+            Booking.status != 'cancelled',
+            Booking.check_in < check_out,
+            Booking.check_out > check_in
+        ).first()
+        
+        return jsonify({'available': not bool(conflicting_bookings)})
+    except Exception as e:
+        app.logger.error(f"Availability check error: {str(e)}")
+        return jsonify({'available': False, 'error': 'Error checking availability'}), 500
