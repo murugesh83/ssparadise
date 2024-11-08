@@ -5,33 +5,40 @@
 
 .hero-section {
     background-color: rgba(0, 0, 0, 0.7);
-    padding: 3rem 0;
+    padding: 2rem 0;
     color: white;
+    margin-bottom: 3rem;
 }
 
 .hero-section h2 {
-    font-size: 2.2rem;
-    margin-bottom: 1rem;
+    font-size: 1.8rem;
+    margin-bottom: 0.8rem;
+    font-weight: 300;
 }
 
 .hero-section p {
-    font-size: 1.1rem;
-    max-width: 800px;
-    margin: 0 auto 1.5rem;
+    font-size: 1rem;
+    max-width: 600px;
+    margin: 0 auto 1.2rem;
+    opacity: 0.9;
 }
 
 .room-card {
-    transition: transform 0.3s ease;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
     margin-bottom: 2rem;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .room-card:hover {
     transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .room-image {
     height: 200px;
     object-fit: cover;
+    border-radius: 8px 8px 0 0;
 }
 
 .amenities-list {
@@ -46,14 +53,29 @@
 }
 
 .contact-section {
-    background-color: #f8f9fa;
+    background-color: var(--bs-dark);
     padding: 4rem 0;
+    margin-top: 4rem;
 }
 
 .location-map {
     height: 400px;
     width: 100%;
     margin-top: 2rem;
+    border-radius: 8px;
+}
+
+.section-spacing {
+    margin-bottom: 4rem;
+}
+
+.card {
+    border: none;
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
 }
 
 @media (max-width: 768px) {
@@ -63,5 +85,9 @@
     
     .room-image {
         height: 150px;
+    }
+    
+    .section-spacing {
+        margin-bottom: 2rem;
     }
 }

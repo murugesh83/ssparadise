@@ -29,8 +29,12 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
             const href = this.getAttribute('href');
-            // Only process valid fragment identifiers
-            if (href && href !== '#' && href.length > 1) {
+            // Skip empty hrefs or invalid selectors
+            if (!href || href === '#') {
+                return;
+            }
+            
+            try {
                 const targetElement = document.querySelector(href);
                 if (targetElement) {
                     e.preventDefault();
@@ -39,6 +43,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         block: 'start'
                     });
                 }
+            } catch (error) {
+                console.debug('Invalid selector, skipping smooth scroll');
             }
         });
     });
