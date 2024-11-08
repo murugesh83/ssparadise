@@ -29,19 +29,24 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
             const href = this.getAttribute('href');
-            // Skip empty or single hash hrefs
-            if (!href || href === '#') {
+            // Skip empty hrefs or javascript:void(0)
+            if (!href || href === '#' || href === 'javascript:void(0)') {
                 return;
             }
             
             // Only try to scroll if the href points to a valid element
-            const targetElement = document.querySelector(href);
-            if (targetElement) {
-                e.preventDefault();
-                targetElement.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
+            try {
+                const targetElement = document.querySelector(href);
+                if (targetElement) {
+                    e.preventDefault();
+                    targetElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            } catch (error) {
+                // Invalid selector, ignore
+                console.debug('Invalid selector:', href);
             }
         });
     });

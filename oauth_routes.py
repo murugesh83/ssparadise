@@ -28,9 +28,8 @@ def google_login():
             
         authorization_endpoint = google_provider_cfg["authorization_endpoint"]
         
-        # Use request.host_url to get the base URL
-        base_url = request.host_url.rstrip('/')
-        redirect_uri = f"{base_url}/login/google/callback"
+        # Generate the redirect URI using url_for
+        redirect_uri = url_for('google_callback', _external=True, _scheme='https')
         
         # Generate state parameter for security
         request_uri = client.prepare_request_uri(
@@ -60,9 +59,8 @@ def google_callback():
 
         token_endpoint = google_provider_cfg["token_endpoint"]
         
-        # Use request.host_url to get the base URL
-        base_url = request.host_url.rstrip('/')
-        redirect_uri = f"{base_url}/login/google/callback"
+        # Generate the redirect URI using url_for
+        redirect_uri = url_for('google_callback', _external=True, _scheme='https')
 
         # Prepare and send request to get tokens
         token_url, headers, body = client.prepare_token_request(
