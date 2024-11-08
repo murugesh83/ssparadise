@@ -118,36 +118,79 @@ def init_mail_app(app):
         app.logger.error(f"Error initializing mail app: {str(e)}")
         return False
 
+def log_email_delivery(recipient, cc_list, success, error=None):
+    """Helper function to log email delivery status"""
+    if success:
+        current_app.logger.info(f"Email sent successfully to {recipient}")
+        for cc in cc_list:
+            current_app.logger.info(f"CC email sent successfully to {cc}")
+    else:
+        current_app.logger.error(f"Failed to send email to {recipient}")
+        if error:
+            current_app.logger.error(f"Error details: {str(error)}")
+
 @retry_on_failure(max_retries=3, delay=1)
 def send_booking_confirmation(booking):
-    """Send booking confirmation email with retry mechanism"""
+    """Send booking confirmation email with enhanced error handling and logging"""
+    cc_list = ['ssparadisehotels@gmail.com']
+    success = False
+    
     try:
+        # Validate email addresses
+        if not booking.guest_email:
+            raise ValueError("Guest email is required")
+        
         msg = Message(
             'Booking Confirmation - SS Paradise Residency',
             recipients=[booking.guest_email],
-            cc=['ssparadisehotels@gmail.com']
+            cc=cc_list
         )
         msg.body = render_template_string(BOOKING_CONFIRMATION_TEMPLATE, booking=booking)
-        mail.send(msg)
-        current_app.logger.info(f"Booking confirmation email sent successfully to {booking.guest_email}")
-        return True
+        
+        # Send email and handle potential errors
+        try:
+            mail.send(msg)
+            success = True
+            log_email_delivery(booking.guest_email, cc_list, True)
+        except Exception as send_error:
+            log_email_delivery(booking.guest_email, cc_list, False, send_error)
+            raise send_error
+            
+        return success
+        
     except Exception as e:
-        current_app.logger.error(f"Error sending confirmation email: {str(e)}")
+        current_app.logger.error(f"Error in send_booking_confirmation: {str(e)}")
         raise
 
 @retry_on_failure(max_retries=3, delay=1)
 def send_booking_status_update(booking):
-    """Send booking status update email with retry mechanism"""
+    """Send booking status update email with enhanced error handling and logging"""
+    cc_list = ['ssparadisehotels@gmail.com']
+    success = False
+    
     try:
+        # Validate email addresses
+        if not booking.guest_email:
+            raise ValueError("Guest email is required")
+        
         msg = Message(
             'Booking Status Update - SS Paradise Residency',
             recipients=[booking.guest_email],
-            cc=['ssparadisehotels@gmail.com']
+            cc=cc_list
         )
         msg.body = render_template_string(BOOKING_STATUS_UPDATE_TEMPLATE, booking=booking)
-        mail.send(msg)
-        current_app.logger.info(f"Booking status update email sent successfully to {booking.guest_email}")
-        return True
+        
+        # Send email and handle potential errors
+        try:
+            mail.send(msg)
+            success = True
+            log_email_delivery(booking.guest_email, cc_list, True)
+        except Exception as send_error:
+            log_email_delivery(booking.guest_email, cc_list, False, send_error)
+            raise send_error
+            
+        return success
+        
     except Exception as e:
-        current_app.logger.error(f"Error sending status update email: {str(e)}")
+        current_app.logger.error(f"Error in send_booking_status_update: {str(e)}")
         raise
