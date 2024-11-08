@@ -28,8 +28,9 @@ def google_login():
             
         authorization_endpoint = google_provider_cfg["authorization_endpoint"]
         
-        # Generate the redirect URI using url_for
-        redirect_uri = url_for('google_callback', _external=True, _scheme='https')
+        # Generate the redirect URI using url_for with _external=True
+        # Let the protocol (http/https) be determined by the request
+        redirect_uri = url_for('google_callback', _external=True)
         
         # Generate state parameter for security
         request_uri = client.prepare_request_uri(
@@ -59,8 +60,8 @@ def google_callback():
 
         token_endpoint = google_provider_cfg["token_endpoint"]
         
-        # Generate the redirect URI using url_for
-        redirect_uri = url_for('google_callback', _external=True, _scheme='https')
+        # Generate the redirect URI using url_for with _external=True
+        redirect_uri = url_for('google_callback', _external=True)
 
         # Prepare and send request to get tokens
         token_url, headers, body = client.prepare_token_request(
