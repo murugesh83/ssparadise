@@ -29,13 +29,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
             const href = this.getAttribute('href');
-            // Skip empty hrefs or javascript:void(0)
-            if (!href || href === '#' || href === 'javascript:void(0)') {
-                return;
-            }
-            
-            // Only try to scroll if the href points to a valid element
-            try {
+            // Only process valid fragment identifiers
+            if (href && href !== '#' && href.length > 1) {
                 const targetElement = document.querySelector(href);
                 if (targetElement) {
                     e.preventDefault();
@@ -44,9 +39,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         block: 'start'
                     });
                 }
-            } catch (error) {
-                // Invalid selector, ignore
-                console.debug('Invalid selector:', href);
             }
         });
     });

@@ -28,15 +28,15 @@ def google_login():
             
         authorization_endpoint = google_provider_cfg["authorization_endpoint"]
         
-        # Generate the redirect URI using url_for with _external=True
-        # Let the protocol (http/https) be determined by the request
-        redirect_uri = url_for('google_callback', _external=True)
+        # Get the base URL from the current request
+        base_url = request.url_root.rstrip('/')
+        redirect_uri = f"{base_url}/login/google/callback"
         
         # Generate state parameter for security
         request_uri = client.prepare_request_uri(
             authorization_endpoint,
             redirect_uri=redirect_uri,
-            scope=["openid", "email", "profile"],
+            scope=["openid", "email", "profile"]
         )
         return redirect(request_uri)
     except Exception as e:
@@ -60,8 +60,9 @@ def google_callback():
 
         token_endpoint = google_provider_cfg["token_endpoint"]
         
-        # Generate the redirect URI using url_for with _external=True
-        redirect_uri = url_for('google_callback', _external=True)
+        # Get the base URL from the current request for the callback
+        base_url = request.url_root.rstrip('/')
+        redirect_uri = f"{base_url}/login/google/callback"
 
         # Prepare and send request to get tokens
         token_url, headers, body = client.prepare_token_request(
