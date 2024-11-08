@@ -18,8 +18,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (roomName.includes(searchTerm) || roomType.includes(searchTerm)) {
                     card.style.display = 'block';
+                    card.style.opacity = '1';
                 } else {
-                    card.style.display = 'none';
+                    card.style.opacity = '0';
+                    setTimeout(() => {
+                        card.style.display = 'none';
+                    }, 300);
                 }
             });
         });
@@ -29,23 +33,49 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
             const href = this.getAttribute('href');
-            // Skip empty hrefs or invalid selectors
-            if (!href || href === '#') {
-                return;
-            }
+            if (!href || href === '#') return;
             
-            try {
-                const targetElement = document.querySelector(href);
-                if (targetElement) {
-                    e.preventDefault();
-                    targetElement.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            } catch (error) {
-                console.debug('Invalid selector, skipping smooth scroll');
+            const targetId = href.substring(1);
+            if (!targetId) return;
+            
+            const targetElement = document.getElementById(targetId);
+            if (targetElement) {
+                e.preventDefault();
+                targetElement.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
             }
         });
     });
+
+    // Add smooth reveal animations for sections
+    const revealElements = document.querySelectorAll('.reveal-on-scroll');
+    const revealCallback = (entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('revealed');
+            }
+        });
+    };
+
+    if (revealElements.length > 0) {
+        const observer = new IntersectionObserver(revealCallback, {
+            threshold: 0.1
+        });
+
+        revealElements.forEach(el => observer.observe(el));
+    }
+
+    // Enhance navbar transparency on scroll
+    const navbar = document.querySelector('.navbar');
+    if (navbar) {
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                navbar.classList.add('navbar-scrolled');
+            } else {
+                navbar.classList.remove('navbar-scrolled');
+            }
+        });
+    }
 });

@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from flask_login import LoginManager
 from email_utils import init_mail_app
+from datetime import datetime
 
 class Base(DeclarativeBase):
     pass
@@ -17,8 +18,8 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or "ss_paradise_secret_key"
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["DEBUG"] = True  # Enable debug mode
-app.config["HOST"] = "0.0.0.0"  # Listen on all interfaces
+app.config["DEBUG"] = True
+app.config["HOST"] = "0.0.0.0"
 app.config["PORT"] = 5000
 
 # Stripe Configuration
@@ -39,6 +40,11 @@ init_mail_app(app)
 def load_user(user_id):
     from models import User
     return User.query.get(int(user_id))
+
+# Make current year available to all templates
+@app.context_processor
+def inject_current_year():
+    return {'current_year': datetime.now().year}
 
 # Import routes after app initialization to avoid circular imports
 from routes import *

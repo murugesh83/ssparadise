@@ -13,7 +13,7 @@ import stripe
 def index():
     # Fetch featured rooms
     featured_rooms = Room.query.filter_by(available=True).order_by(Room.id).limit(4).all()
-    return render_template('index.html', featured_rooms=featured_rooms)
+    return render_template('index.html', featured_rooms=featured_rooms, current_year=datetime.now().year)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():

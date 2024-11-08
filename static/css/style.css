@@ -1,93 +1,182 @@
 :root {
-    --primary-color: #4a90e2;
-    --secondary-color: #f5a623;
+    --luxury-gold: #d4af37;
+    --luxury-dark: #1a1a1a;
+    --luxury-light: #f5f5f5;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.6;
+}
+
+.navbar {
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.navbar-brand {
+    font-weight: 600;
+    letter-spacing: 0.5px;
 }
 
 .hero-section {
-    background-color: rgba(0, 0, 0, 0.7);
-    padding: 2rem 0;
-    color: white;
-    margin-bottom: 3rem;
+    background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+                url('https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=2000');
+    background-size: cover;
+    background-position: center;
+    padding: 8rem 0;
+    color: var(--luxury-light);
+    margin-bottom: 4rem;
+    position: relative;
+}
+
+.hero-section::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 100px;
+    background: linear-gradient(to top, var(--bs-dark), transparent);
 }
 
 .hero-section h2 {
-    font-size: 1.8rem;
-    margin-bottom: 0.8rem;
+    font-size: 2.5rem;
+    margin-bottom: 1.5rem;
     font-weight: 300;
+    letter-spacing: 1px;
 }
 
 .hero-section p {
-    font-size: 1rem;
-    max-width: 600px;
-    margin: 0 auto 1.2rem;
+    font-size: 1.1rem;
+    max-width: 700px;
+    margin: 0 auto 2rem;
     opacity: 0.9;
+    line-height: 1.8;
+}
+
+.btn-primary {
+    background-color: var(--luxury-gold);
+    border-color: var(--luxury-gold);
+    padding: 0.8rem 2rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background-color: darken(var(--luxury-gold), 10%);
+    border-color: darken(var(--luxury-gold), 10%);
+    transform: translateY(-2px);
 }
 
 .room-card {
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
     margin-bottom: 2rem;
     border: none;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    background: var(--bs-dark);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .room-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transform: translateY(-8px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
 }
 
 .room-image {
-    height: 200px;
+    height: 250px;
     object-fit: cover;
     border-radius: 8px 8px 0 0;
+    transition: all 0.4s ease;
+}
+
+.room-card:hover .room-image {
+    transform: scale(1.05);
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+.card-title {
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--luxury-light);
+}
+
+.room-type {
+    color: var(--luxury-gold);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 1rem;
 }
 
 .amenities-list {
     list-style: none;
     padding-left: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.amenities-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--luxury-light);
 }
 
 .booking-form {
     max-width: 600px;
     margin: 0 auto;
     padding: 2rem;
+    background: var(--bs-dark);
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
 }
 
 .contact-section {
-    background-color: var(--bs-dark);
+    background: linear-gradient(45deg, var(--bs-dark), var(--luxury-dark));
+    padding: 6rem 0;
+    margin-top: 6rem;
+    position: relative;
+}
+
+.section-title {
+    font-size: 2.2rem;
+    font-weight: 300;
+    margin-bottom: 2rem;
+    text-align: center;
+    color: var(--luxury-light);
+}
+
+.section-title::after {
+    content: '';
+    display: block;
+    width: 60px;
+    height: 2px;
+    background: var(--luxury-gold);
+    margin: 1rem auto;
+}
+
+footer {
+    background: var(--luxury-dark);
     padding: 4rem 0;
-    margin-top: 4rem;
-}
-
-.location-map {
-    height: 400px;
-    width: 100%;
-    margin-top: 2rem;
-    border-radius: 8px;
-}
-
-.section-spacing {
-    margin-bottom: 4rem;
-}
-
-.card {
-    border: none;
-    transition: transform 0.3s ease;
-}
-
-.card:hover {
-    transform: translateY(-5px);
+    margin-top: 6rem;
 }
 
 @media (max-width: 768px) {
     .hero-section {
-        padding: 2rem 0;
+        padding: 4rem 0;
+    }
+    
+    .hero-section h2 {
+        font-size: 2rem;
     }
     
     .room-image {
-        height: 150px;
-    }
-    
-    .section-spacing {
-        margin-bottom: 2rem;
+        height: 200px;
     }
 }
