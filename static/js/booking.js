@@ -1,12 +1,37 @@
 document.addEventListener('DOMContentLoaded', function() {
     const bookingForm = document.getElementById('bookingForm');
+    const checkInInput = document.getElementById('check_in');
+    const checkOutInput = document.getElementById('check_out');
+    const payNowOption = document.getElementById('pay_now');
+    const payLaterOption = document.getElementById('pay_later');
     
     if (bookingForm) {
+        // Set minimum dates
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        checkInInput.min = today.toISOString().split('T')[0];
+        checkOutInput.min = tomorrow.toISOString().split('T')[0];
+        
+        // Update checkout min date when checkin changes
+        checkInInput.addEventListener('change', function() {
+            const selectedDate = new Date(this.value);
+            const nextDay = new Date(selectedDate);
+            nextDay.setDate(nextDay.getDate() + 1);
+            checkOutInput.min = nextDay.toISOString().split('T')[0];
+            
+            if (checkOutInput.value && new Date(checkOutInput.value) <= selectedDate) {
+                checkOutInput.value = nextDay.toISOString().split('T')[0];
+            }
+        });
+        
+        // Form submission handler
         bookingForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const checkIn = document.getElementById('check_in').value;
-            const checkOut = document.getElementById('check_out').value;
+            const checkIn = checkInInput.value;
+            const checkOut = checkOutInput.value;
             const roomId = document.getElementById('room_id').value;
 
             try {
@@ -30,21 +55,25 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
                 
+                // Submit the form if availability check passes
                 bookingForm.submit();
             } catch (error) {
                 console.error('Error:', error);
-                alert('An error occurred. Please try again.');
+                alert('An error occurred while checking room availability. Please try again.');
             }
         });
 
-        // Date input validation
-        const checkInInput = document.getElementById('check_in');
-        const checkOutInput = document.getElementById('check_out');
-
-        checkInInput.min = new Date().toISOString().split('T')[0];
-        
-        checkInInput.addEventListener('change', function() {
-            checkOutInput.min = this.value;
+        // Payment option selection handler
+        const paymentOptions = document.querySelectorAll('input[name="payment_option"]');
+        paymentOptions.forEach(option => {
+            option.addEventListener('change', function() {
+                const submitButton = bookingForm.querySelector('button[type="submit"]');
+                if (this.value === 'now') {
+                    submitButton.innerHTML = '<i class="bi bi-credit-card me-2"></i>Proceed to Payment';
+                } else {
+                    submitButton.innerHTML = '<i class="bi bi-calendar-check me-2"></i>Confirm Booking';
+                }
+            });
         });
     }
 });

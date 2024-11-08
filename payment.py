@@ -38,7 +38,6 @@ def create_payment_intent(booking_id):
         return intent
         
     except stripe.error.StripeError as e:
-        # Handle Stripe errors
         app.logger.error(f"Stripe error: {str(e)}")
         raise
 
@@ -62,4 +61,42 @@ def confirm_payment(payment_intent_id):
         
     except stripe.error.StripeError as e:
         app.logger.error(f"Stripe error: {str(e)}")
+        raise
+
+def process_refund(booking_id):
+    """Process refund for a cancelled booking."""
+    booking = Booking.query.get(booking_id)
+    if not booking or not booking.payment_intent_id:
+        raise ValueError("Invalid booking or no payment found")
+    
+    if booking.payment_status != 'completed':
+        raise ValueError("Cannot refund an incomplete payment")
+    
+    refund_amount = booking.refund_amount_available
+    if refund_amount <= 0:
+        booking.refund_status = 'no_refund'
+        db.session.commit()
+        return None
+    
+    try:
+        refund_amount_cents = int(refund_amount * 100)
+        refund = stripe.Refund.create(
+            payment_intent=booking.payment_intent_id,
+            amount=refund_amount_cents,
+            metadata={
+                'booking_id': booking_id,
+                'refund_reason': booking.cancellation_reason
+            }
+        )
+        
+        booking.refund_status = 'completed'
+        booking.refund_amount = refund_amount
+        db.session.commit()
+        
+        return refund
+        
+    except stripe.error.StripeError as e:
+        app.logger.error(f"Stripe refund error: {str(e)}")
+        booking.refund_status = 'failed'
+        db.session.commit()
         raise

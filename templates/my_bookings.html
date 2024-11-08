@@ -17,14 +17,69 @@
                             <strong>Check-out:</strong> {{ booking.check_out.strftime('%Y-%m-%d') }}<br>
                             <strong>Guests:</strong> {{ booking.guests }}<br>
                             <strong>Status:</strong> 
-                            <span class="badge {% if booking.status == 'confirmed' %}bg-success{% else %}bg-warning{% endif %}">
+                            <span class="badge {% if booking.status == 'confirmed' %}bg-success{% elif booking.status == 'cancelled' %}bg-danger{% else %}bg-warning{% endif %}">
                                 {{ booking.status.title() }}
                             </span>
+                            {% if booking.status == 'cancelled' and booking.refund_status %}
+                            <br>
+                            <strong>Refund Status:</strong>
+                            <span class="badge {% if booking.refund_status == 'completed' %}bg-success{% elif booking.refund_status == 'no_refund' %}bg-warning{% else %}bg-danger{% endif %}">
+                                {{ booking.refund_status.replace('_', ' ').title() }}
+                            </span>
+                            {% if booking.refund_amount %}
+                            <br>
+                            <strong>Refund Amount:</strong> ₹{{ "%.2f"|format(booking.refund_amount) }}
+                            {% endif %}
+                            {% endif %}
                         </p>
                         <small class="text-muted">Booked on: {{ booking.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        
+                        {% if booking.can_cancel and booking.status != 'cancelled' %}
+                        <hr>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button type="button" class="btn btn-danger" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#cancelModal{{ booking.id }}">
+                                Cancel Booking
+                            </button>
+                            <small class="text-muted">
+                                Cancellation fee: ₹{{ "%.2f"|format(booking.cancellation_fee) }}
+                            </small>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
+            
+            {% if booking.can_cancel and booking.status != 'cancelled' %}
+            <!-- Cancel Booking Modal -->
+            <div class="modal fade" id="cancelModal{{ booking.id }}" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Cancel Booking</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Are you sure you want to cancel this booking?</p>
+                            <p><strong>Cancellation Fee:</strong> ₹{{ "%.2f"|format(booking.cancellation_fee) }}</p>
+                            <p><strong>Refund Amount:</strong> ₹{{ "%.2f"|format(booking.refund_amount_available) }}</p>
+                            <form id="cancelForm{{ booking.id }}" action="{{ url_for('cancel_booking', booking_id=booking.id) }}" method="POST">
+                                <div class="mb-3">
+                                    <label for="cancellationReason{{ booking.id }}" class="form-label">Reason for Cancellation</label>
+                                    <textarea class="form-control" id="cancellationReason{{ booking.id }}" 
+                                              name="cancellation_reason" rows="3" required></textarea>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="submit" form="cancelForm{{ booking.id }}" class="btn btn-danger">Confirm Cancellation</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
             {% endfor %}
         </div>
     {% else %}

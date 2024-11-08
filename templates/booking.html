@@ -17,6 +17,39 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Payment Options Information -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Payment Options</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6>Pay Now</h6>
+                                    <ul class="list-unstyled">
+                                        <li><i class="bi bi-check-circle text-success me-2"></i>Instant confirmation</li>
+                                        <li><i class="bi bi-check-circle text-success me-2"></i>Secure online payment</li>
+                                        <li><i class="bi bi-check-circle text-success me-2"></i>Better cancellation terms</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6>Pay Later</h6>
+                                    <ul class="list-unstyled">
+                                        <li><i class="bi bi-check-circle text-success me-2"></i>Book now, pay at check-in</li>
+                                        <li><i class="bi bi-check-circle text-success me-2"></i>No advance payment</li>
+                                        <li><i class="bi bi-exclamation-circle text-warning me-2"></i>Limited cancellation options</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="col-md-6">
@@ -25,12 +58,14 @@
                 
                 <div class="mb-3">
                     <label for="name" class="form-label">Full Name</label>
-                    <input type="text" class="form-control" id="name" name="name" required>
+                    <input type="text" class="form-control" id="name" name="name" required 
+                           value="{{ current_user.name }}">
                 </div>
 
                 <div class="mb-3">
                     <label for="email" class="form-label">Email</label>
-                    <input type="email" class="form-control" id="email" name="email" required>
+                    <input type="email" class="form-control" id="email" name="email" required 
+                           value="{{ current_user.email }}">
                 </div>
 
                 <div class="row">
@@ -54,12 +89,40 @@
                     </select>
                 </div>
 
-                <button type="submit" class="btn btn-primary w-100">Confirm Booking</button>
+                <div class="mb-4">
+                    <label class="form-label">Payment Option</label>
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="payment_option" id="pay_now" value="now" checked>
+                        <label class="btn btn-outline-primary" for="pay_now">
+                            <i class="bi bi-credit-card me-2"></i>Pay Now
+                        </label>
+                        
+                        <input type="radio" class="btn-check" name="payment_option" id="pay_later" value="later">
+                        <label class="btn btn-outline-primary" for="pay_later">
+                            <i class="bi bi-clock-history me-2"></i>Pay Later
+                        </label>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h6 class="card-title"><i class="bi bi-info-circle me-2"></i>Cancellation Policy</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>More than 7 days: 10% fee</li>
+                            <li class="mb-2"><i class="bi bi-check-circle text-warning me-2"></i>3-7 days: 30% fee</li>
+                            <li class="mb-2"><i class="bi bi-check-circle text-warning me-2"></i>48-72 hours: 50% fee</li>
+                            <li><i class="bi bi-x-circle text-danger me-2"></i>Less than 48 hours: No refund</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-calendar-check me-2"></i>Confirm Booking
+                </button>
             </form>
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}

@@ -1,5 +1,6 @@
+import os
 from app import db
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -49,11 +50,50 @@ class Booking(db.Model):
     guests = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     status = db.Column(db.String(20), default='pending')
-    # New payment-related fields
+    # Payment-related fields
     payment_status = db.Column(db.String(20), default='pending')
+    payment_option = db.Column(db.String(20), default='now')  # 'now' or 'later'
     payment_intent_id = db.Column(db.String(100))
     amount_paid = db.Column(db.Float)
     payment_date = db.Column(db.DateTime)
+    # Cancellation-related fields
+    cancelled_at = db.Column(db.DateTime)
+    cancellation_reason = db.Column(db.Text)
+    refund_status = db.Column(db.String(20))
+    refund_amount = db.Column(db.Float)
+
+    @property
+    def can_cancel(self):
+        if self.status == 'cancelled':
+            return False
+        if self.check_in <= datetime.now().date():
+            return False
+            
+        # Check if within 48-hour window
+        hours_until_checkin = (self.check_in - datetime.now().date()).days * 24
+        return hours_until_checkin >= 48
+
+    @property
+    def cancellation_fee(self):
+        if not self.amount_paid:
+            return 0
+            
+        hours_until_checkin = (self.check_in - datetime.now().date()).days * 24
+        
+        if hours_until_checkin >= 168:  # More than 7 days
+            return self.amount_paid * 0.1  # 10% cancellation fee
+        elif hours_until_checkin >= 72:  # 3-7 days
+            return self.amount_paid * 0.3  # 30% cancellation fee
+        elif hours_until_checkin >= 48:  # 48-72 hours
+            return self.amount_paid * 0.5  # 50% cancellation fee
+        else:  # Less than 48 hours
+            return self.amount_paid  # No refund
+
+    @property
+    def refund_amount_available(self):
+        if not self.amount_paid:
+            return 0
+        return self.amount_paid - self.cancellation_fee
 
 class Contact(db.Model):
     id = db.Column(db.Integer, primary_key=True)

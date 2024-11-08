@@ -35,6 +35,18 @@ args = "Init DB"
 task = "workflow.run"
 args = "Setup Database"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Init Database"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Initialize Database"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Database Setup"
+
 [[workflows.workflow]]
 name = "Flask Server"
 author = "agent"
@@ -119,6 +131,48 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python setup_database.py"
+
+[[workflows.workflow]]
+name = "Init Database"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python init_db.py"
+
+[[workflows.workflow]]
+name = "Initialize Database"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python init_db.py && python seed_rooms.py && python create_admin.py"
+
+[[workflows.workflow]]
+name = "Database Setup"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python init_db.py && python seed_rooms.py && python create_admin.py"
 
 [deployment]
 run = ["sh", "-c", "python main.py"]
