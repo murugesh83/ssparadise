@@ -42,6 +42,7 @@ def load_user(user_id):
 
 # Import routes after app initialization to avoid circular imports
 from routes import *
+from oauth_routes import *
 
 # Create database tables
 with app.app_context():

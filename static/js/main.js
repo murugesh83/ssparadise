@@ -29,16 +29,13 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
             const href = this.getAttribute('href');
-            // Only handle valid href values that are not just "#"
-            if (href && href !== '#' && href.length > 1) {
-                const targetElement = document.querySelector(href);
-                if (targetElement) {
-                    e.preventDefault();
-                    targetElement.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
+            // Only handle valid href values that actually point to an element
+            if (href && href !== '#' && href.length > 1 && document.querySelector(href)) {
+                e.preventDefault();
+                document.querySelector(href).scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
             }
         });
     });

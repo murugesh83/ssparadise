@@ -14,4 +14,8 @@ dependencies = [
     "stripe>=11.2.0",
     "sqlalchemy",
     "flask-mail>=0.10.0",
+    "google-auth>=2.36.0",
+    "google-auth-oauthlib>=1.2.1",
+    "google-auth-httplib2>=0.2.0",
+    "requests>=2.32.3",
 ]
