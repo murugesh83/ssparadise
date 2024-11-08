@@ -29,10 +29,15 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
             const href = this.getAttribute('href');
+            // Skip empty or invalid hrefs
+            if (!href || href === '#') {
+                return;
+            }
             // Only handle valid href values that actually point to an element
-            if (href && href !== '#' && href.length > 1 && document.querySelector(href)) {
+            const targetElement = document.querySelector(href);
+            if (targetElement) {
                 e.preventDefault();
-                document.querySelector(href).scrollIntoView({
+                targetElement.scrollIntoView({
                     behavior: 'smooth',
                     block: 'start'
                 });

@@ -1,10 +1,11 @@
 import json
 import requests
-from flask import redirect, request, url_for, flash
+from flask import redirect, request, url_for, flash, current_app
 from flask_login import login_user
 from app import app, db
 from models import User
 from oauth_config import client, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_DISCOVERY_URL
+from urllib.parse import urljoin
 
 def get_google_provider_cfg():
     try:
@@ -16,14 +17,23 @@ def get_google_provider_cfg():
 @app.route("/login/google")
 def google_login():
     try:
+        # Check if we have the required credentials
+        if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+            flash("Google OAuth is not configured properly.", "error")
+            return redirect(url_for("login"))
+
         google_provider_cfg = get_google_provider_cfg()
         if not google_provider_cfg:
             raise Exception("Unable to fetch Google provider configuration")
             
         authorization_endpoint = google_provider_cfg["authorization_endpoint"]
+        
+        # Ensure we have a proper redirect URI
+        redirect_uri = urljoin(request.base_url, url_for('google_callback'))
+        
         request_uri = client.prepare_request_uri(
             authorization_endpoint,
-            redirect_uri=request.root_url + "login/google/callback",
+            redirect_uri=redirect_uri,
             scope=["openid", "email", "profile"],
         )
         return redirect(request_uri)
@@ -47,12 +57,15 @@ def google_callback():
             return redirect(url_for("login"))
 
         token_endpoint = google_provider_cfg["token_endpoint"]
+        
+        # Ensure we have a proper redirect URI
+        redirect_uri = urljoin(request.base_url.rsplit('/callback', 1)[0], url_for('google_callback'))
 
         # Prepare and send request to get tokens
         token_url, headers, body = client.prepare_token_request(
             token_endpoint,
             authorization_response=request.url,
-            redirect_url=request.root_url + "login/google/callback",
+            redirect_url=redirect_uri,
             code=code,
         )
 
@@ -74,7 +87,7 @@ def google_callback():
         if userinfo_response.json().get("email_verified"):
             google_id = userinfo_response.json()["sub"]
             email = userinfo_response.json()["email"]
-            name = userinfo_response.json()["name"]
+            name = userinfo_response.json().get("name", email.split('@')[0])
 
             # Check if user exists
             user = User.query.filter_by(email=email).first()
@@ -85,7 +98,8 @@ def google_callback():
                     name=name,
                     is_admin=False
                 )
-                user.set_password(google_id)  # Use Google ID as password
+                # Set a secure random password
+                user.set_password(google_id + email)  # More secure than just google_id
                 db.session.add(user)
                 db.session.commit()
 
