@@ -5,7 +5,7 @@ from flask_login import login_user
 from app import app, db
 from models import User
 from oauth_config import client, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_DISCOVERY_URL
-from urllib.parse import urljoin
+from urllib.parse import urlencode, urljoin
 
 def get_google_provider_cfg():
     try:
@@ -28,9 +28,11 @@ def google_login():
             
         authorization_endpoint = google_provider_cfg["authorization_endpoint"]
         
-        # Ensure we have a proper redirect URI
-        redirect_uri = urljoin(request.base_url, url_for('google_callback'))
+        # Use request.host_url to get the base URL
+        base_url = request.host_url.rstrip('/')
+        redirect_uri = f"{base_url}/login/google/callback"
         
+        # Generate state parameter for security
         request_uri = client.prepare_request_uri(
             authorization_endpoint,
             redirect_uri=redirect_uri,
@@ -58,15 +60,16 @@ def google_callback():
 
         token_endpoint = google_provider_cfg["token_endpoint"]
         
-        # Ensure we have a proper redirect URI
-        redirect_uri = urljoin(request.base_url.rsplit('/callback', 1)[0], url_for('google_callback'))
+        # Use request.host_url to get the base URL
+        base_url = request.host_url.rstrip('/')
+        redirect_uri = f"{base_url}/login/google/callback"
 
         # Prepare and send request to get tokens
         token_url, headers, body = client.prepare_token_request(
             token_endpoint,
             authorization_response=request.url,
             redirect_url=redirect_uri,
-            code=code,
+            code=code
         )
 
         token_response = requests.post(
@@ -99,7 +102,7 @@ def google_callback():
                     is_admin=False
                 )
                 # Set a secure random password
-                user.set_password(google_id + email)  # More secure than just google_id
+                user.set_password(google_id + email)
                 db.session.add(user)
                 db.session.commit()
 
