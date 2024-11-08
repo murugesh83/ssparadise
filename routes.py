@@ -179,7 +179,6 @@ def cancel_booking(booking_id):
     
     return redirect(url_for('my_bookings'))
 
-# Webhook endpoint for Stripe
 @app.route('/webhook', methods=['POST'])
 def webhook():
     payload = request.get_data()
@@ -206,3 +205,85 @@ def webhook():
                 return str(e), 500
 
     return jsonify(success=True)
+
+@app.route('/admin/rooms')
+@admin_required
+def admin_rooms():
+    rooms = Room.query.all()
+    return render_template('admin/rooms.html', rooms=rooms)
+
+@app.route('/admin/rooms/add', methods=['POST'])
+@admin_required
+def admin_add_room():
+    try:
+        room = Room(
+            name=request.form['name'],
+            room_type=request.form['room_type'],
+            price=float(request.form['price']),
+            capacity=int(request.form['capacity']),
+            image_url=request.form['image_url'],
+            description=request.form['description'],
+            available=bool(request.form.get('available', True))
+        )
+        db.session.add(room)
+        db.session.commit()
+        flash('Room added successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error adding room. Please try again.', 'error')
+    return redirect(url_for('admin_rooms'))
+
+@app.route('/admin/rooms/<int:room_id>/edit', methods=['GET', 'POST'])
+@admin_required
+def admin_edit_room(room_id):
+    room = Room.query.get_or_404(room_id)
+    if request.method == 'POST':
+        try:
+            room.name = request.form['name']
+            room.room_type = request.form['room_type']
+            room.price = float(request.form['price'])
+            room.capacity = int(request.form['capacity'])
+            room.image_url = request.form['image_url']
+            room.description = request.form['description']
+            room.available = bool(request.form.get('available'))
+            db.session.commit()
+            flash('Room updated successfully!', 'success')
+            return redirect(url_for('admin_rooms'))
+        except Exception as e:
+            db.session.rollback()
+            flash('Error updating room. Please try again.', 'error')
+    return render_template('admin/edit_room.html', room=room)
+
+@app.route('/admin/rooms/<int:room_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_room(room_id):
+    room = Room.query.get_or_404(room_id)
+    try:
+        db.session.delete(room)
+        db.session.commit()
+        return jsonify(success=True)
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(success=False, error=str(e))
+
+@app.route('/admin/bookings')
+@admin_required
+def admin_bookings():
+    bookings = Booking.query.order_by(Booking.created_at.desc()).all()
+    return render_template('admin/bookings.html', bookings=bookings)
+
+@app.route('/admin/bookings/<int:booking_id>/update', methods=['POST'])
+@admin_required
+def admin_update_booking(booking_id):
+    booking = Booking.query.get_or_404(booking_id)
+    try:
+        status = request.json.get('status')
+        if status in ['confirmed', 'cancelled']:
+            booking.status = status
+            db.session.commit()
+            send_booking_status_update(booking)
+            return jsonify(success=True)
+        return jsonify(success=False, error='Invalid status')
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(success=False, error=str(e))
