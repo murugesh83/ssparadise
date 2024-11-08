@@ -46,12 +46,6 @@ def index():
     featured_rooms = Room.query.filter_by(available=True).limit(4).all()
     return render_template('index.html', featured_rooms=featured_rooms)
 
-@app.route('/rooms')
-def rooms():
-    from models import Room
-    rooms = Room.query.filter_by(available=True).all()
-    return render_template('rooms.html', rooms=rooms)
-
 @app.route('/contact')
 def contact():
     return render_template('contact.html')

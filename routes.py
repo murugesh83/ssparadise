@@ -8,7 +8,7 @@ from payment import create_payment_intent, confirm_payment, process_refund
 from utils import admin_required
 from email_utils import send_booking_confirmation, send_booking_status_update
 import stripe
-from sqlalchemy import func
+from sqlalchemy import func, and_, not_
 
 def calculate_occupancy_rate():
     total_rooms = Room.query.count()
@@ -21,25 +21,40 @@ def calculate_occupancy_rate():
     ).count()
     return (occupied_rooms / total_rooms) * 100
 
-@app.route('/admin/dashboard')
-@admin_required
-def admin_dashboard():
-    # Get statistics for dashboard
-    stats = {
-        'total_rooms': Room.query.count(),
-        'active_bookings': Booking.query.filter_by(status='confirmed').count(),
-        'daily_revenue': db.session.query(func.sum(Booking.amount_paid))
-            .filter(Booking.payment_status == 'completed')
-            .filter(func.date(Booking.payment_date) == datetime.now().date()).scalar() or 0,
-        'occupancy_rate': calculate_occupancy_rate()
-    }
-    
-    # Get recent activity
-    recent_activity = Booking.query.order_by(Booking.created_at.desc()).limit(10).all()
-    
-    return render_template('admin/dashboard.html', 
-                         stats=stats,
-                         recent_activity=recent_activity)
+@app.route('/rooms')
+def rooms():
+    """Display all available rooms with filtering capability"""
+    rooms = Room.query.filter_by(available=True).all()
+    return render_template('rooms.html', rooms=rooms)
+
+@app.route('/api/check-room-availability', methods=['POST'])
+def check_room_availability():
+    try:
+        data = request.json
+        check_in = datetime.strptime(data.get('check_in'), '%Y-%m-%d').date()
+        check_out = datetime.strptime(data.get('check_out'), '%Y-%m-%d').date()
+        
+        # Get all rooms
+        all_rooms = Room.query.filter_by(available=True).all()
+        
+        # Find rooms with conflicting bookings
+        booked_room_ids = db.session.query(Booking.room_id).filter(
+            Booking.status != 'cancelled',
+            Booking.check_in < check_out,
+            Booking.check_out > check_in
+        ).distinct().all()
+        
+        booked_room_ids = [room_id for (room_id,) in booked_room_ids]
+        available_room_ids = [room.id for room in all_rooms if room.id not in booked_room_ids]
+        
+        return jsonify({
+            'available_rooms': available_room_ids,
+            'total_rooms': len(all_rooms),
+            'available_count': len(available_room_ids)
+        })
+    except Exception as e:
+        app.logger.error(f"Room availability check error: {str(e)}")
+        return jsonify({'error': 'Error checking room availability'}), 500
 
 @app.route('/room/<int:room_id>')
 def room_detail(room_id):
@@ -47,7 +62,6 @@ def room_detail(room_id):
     reviews = Review.query.filter_by(room_id=room_id).order_by(Review.created_at.desc()).all()
     can_review = False
     if current_user.is_authenticated:
-        # Check if user has completed a stay in this room
         completed_bookings = Booking.query.filter_by(
             user_id=current_user.id,
             room_id=room_id,
@@ -206,6 +220,26 @@ def webhook():
 
     return jsonify(success=True)
 
+@app.route('/admin/dashboard')
+@admin_required
+def admin_dashboard():
+    # Get statistics for dashboard
+    stats = {
+        'total_rooms': Room.query.count(),
+        'active_bookings': Booking.query.filter_by(status='confirmed').count(),
+        'daily_revenue': db.session.query(func.sum(Booking.amount_paid))
+            .filter(Booking.payment_status == 'completed')
+            .filter(func.date(Booking.payment_date) == datetime.now().date()).scalar() or 0,
+        'occupancy_rate': calculate_occupancy_rate()
+    }
+    
+    # Get recent activity
+    recent_activity = Booking.query.order_by(Booking.created_at.desc()).limit(10).all()
+    
+    return render_template('admin/dashboard.html', 
+                         stats=stats,
+                         recent_activity=recent_activity)
+
 @app.route('/admin/rooms')
 @admin_required
 def admin_rooms():
@@ -287,28 +321,3 @@ def admin_update_booking(booking_id):
     except Exception as e:
         db.session.rollback()
         return jsonify(success=False, error=str(e))
-
-@app.route('/api/check-availability', methods=['POST'])
-def check_availability():
-    try:
-        data = request.json
-        room_id = data.get('room_id')
-        check_in = datetime.strptime(data.get('check_in'), '%Y-%m-%d').date()
-        check_out = datetime.strptime(data.get('check_out'), '%Y-%m-%d').date()
-        
-        # Check if dates are valid
-        if check_in >= check_out:
-            return jsonify({'available': False, 'error': 'Check-out date must be after check-in date'})
-            
-        # Check if there are any overlapping bookings
-        conflicting_bookings = Booking.query.filter(
-            Booking.room_id == room_id,
-            Booking.status != 'cancelled',
-            Booking.check_in < check_out,
-            Booking.check_out > check_in
-        ).first()
-        
-        return jsonify({'available': not bool(conflicting_bookings)})
-    except Exception as e:
-        app.logger.error(f"Availability check error: {str(e)}")
-        return jsonify({'available': False, 'error': 'Error checking availability'}), 500
