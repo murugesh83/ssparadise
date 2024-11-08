@@ -9,6 +9,21 @@ from utils import admin_required
 from email_utils import send_booking_confirmation, send_booking_status_update
 import stripe
 
+@app.route('/room/<int:room_id>')
+def room_detail(room_id):
+    room = Room.query.get_or_404(room_id)
+    reviews = Review.query.filter_by(room_id=room_id).order_by(Review.created_at.desc()).all()
+    can_review = False
+    if current_user.is_authenticated:
+        # Check if user has completed a stay in this room
+        completed_bookings = Booking.query.filter_by(
+            user_id=current_user.id,
+            room_id=room_id,
+            status='confirmed'
+        ).filter(Booking.check_out < datetime.now().date()).all()
+        can_review = len(completed_bookings) > 0
+    return render_template('room_detail.html', room=room, reviews=reviews, can_review=can_review)
+
 @app.route('/booking/<int:room_id>', methods=['GET', 'POST'])
 @login_required
 def booking(room_id):
@@ -131,3 +146,31 @@ def cancel_booking(booking_id):
         flash('An error occurred while cancelling the booking. Please try again.', 'error')
     
     return redirect(url_for('my_bookings'))
+
+# Webhook endpoint for Stripe
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    payload = request.get_data()
+    sig_header = request.headers.get('Stripe-Signature')
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, app.config['STRIPE_WEBHOOK_SECRET']
+        )
+    except ValueError as e:
+        return 'Invalid payload', 400
+    except stripe.error.SignatureVerificationError as e:
+        return 'Invalid signature', 400
+
+    if event['type'] == 'payment_intent.succeeded':
+        payment_intent = event['data']['object']
+        booking_id = payment_intent['metadata'].get('booking_id')
+        
+        if booking_id:
+            try:
+                confirm_payment(payment_intent['id'])
+            except Exception as e:
+                app.logger.error(f"Error confirming payment: {str(e)}")
+                return str(e), 500
+
+    return jsonify(success=True)
