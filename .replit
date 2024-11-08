@@ -122,6 +122,7 @@ args = "python setup_database.py"
 
 [deployment]
 run = ["sh", "-c", "python main.py"]
+deploymentTarget = "cloudrun"
 
 [[ports]]
 localPort = 80
