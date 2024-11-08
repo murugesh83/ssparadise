@@ -8,6 +8,38 @@ from payment import create_payment_intent, confirm_payment, process_refund
 from utils import admin_required
 from email_utils import send_booking_confirmation, send_booking_status_update
 import stripe
+from sqlalchemy import func
+
+def calculate_occupancy_rate():
+    total_rooms = Room.query.count()
+    if total_rooms == 0:
+        return 0
+    occupied_rooms = Booking.query.filter(
+        Booking.status == 'confirmed',
+        Booking.check_in <= datetime.now().date(),
+        Booking.check_out > datetime.now().date()
+    ).count()
+    return (occupied_rooms / total_rooms) * 100
+
+@app.route('/admin/dashboard')
+@admin_required
+def admin_dashboard():
+    # Get statistics for dashboard
+    stats = {
+        'total_rooms': Room.query.count(),
+        'active_bookings': Booking.query.filter_by(status='confirmed').count(),
+        'daily_revenue': db.session.query(func.sum(Booking.amount_paid))
+            .filter(Booking.payment_status == 'completed')
+            .filter(func.date(Booking.payment_date) == datetime.now().date()).scalar() or 0,
+        'occupancy_rate': calculate_occupancy_rate()
+    }
+    
+    # Get recent activity
+    recent_activity = Booking.query.order_by(Booking.created_at.desc()).limit(10).all()
+    
+    return render_template('admin/dashboard.html', 
+                         stats=stats,
+                         recent_activity=recent_activity)
 
 @app.route('/room/<int:room_id>')
 def room_detail(room_id):
