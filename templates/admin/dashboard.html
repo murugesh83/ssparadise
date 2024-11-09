@@ -83,20 +83,20 @@
                     <thead>
                         <tr>
                             <th>Time</th>
-                            <th>Event</th>
-                            <th>Details</th>
+                            <th>Guest</th>
+                            <th>Room</th>
                             <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for activity in recent_activity %}
                         <tr>
-                            <td>{{ activity.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
-                            <td>{{ activity.event_type }}</td>
-                            <td>{{ activity.details }}</td>
+                            <td>{{ activity.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ activity.guest_name }}</td>
+                            <td>{{ activity.room.name }}</td>
                             <td>
-                                <span class="badge bg-{{ activity.status_color }}">
-                                    {{ activity.status }}
+                                <span class="badge bg-{{ 'success' if activity.status == 'confirmed' else 'warning' if activity.status == 'pending' else 'danger' }}">
+                                    {{ activity.status.title() }}
                                 </span>
                             </td>
                         </tr>
