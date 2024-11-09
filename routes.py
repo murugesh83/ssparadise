@@ -122,6 +122,43 @@ def room_detail(room_id):
 @login_required
 def booking(room_id):
     room = Room.query.get_or_404(room_id)
+    if request.method == 'POST':
+        try:
+            # Validate form data
+            check_in = datetime.strptime(request.form.get('check_in'), '%Y-%m-%d').date()
+            check_out = datetime.strptime(request.form.get('check_out'), '%Y-%m-%d').date()
+            guests = int(request.form.get('guests'))
+            payment_option = request.form.get('payment_option')
+
+            # Create booking
+            booking = Booking(
+                room_id=room_id,
+                user_id=current_user.id,
+                guest_name=request.form.get('name'),
+                guest_email=request.form.get('email'),
+                check_in=check_in,
+                check_out=check_out,
+                guests=guests,
+                payment_option=payment_option,
+                status='pending'
+            )
+            
+            db.session.add(booking)
+            db.session.commit()
+
+            # Send confirmation email
+            if send_booking_confirmation(booking):
+                flash('Booking confirmed! Check your email for details.', 'success')
+            else:
+                flash('Booking confirmed! Email notification failed.', 'warning')
+
+            return redirect(url_for('my_bookings'))
+
+        except Exception as e:
+            db.session.rollback()
+            flash('Error processing booking. Please try again.', 'error')
+            return render_template('booking.html', room=room)
+
     return render_template('booking.html', room=room)
 
 @app.route('/my-bookings')

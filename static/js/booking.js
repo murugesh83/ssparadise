@@ -33,12 +33,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const roomId = document.getElementById('room_id').value;
             const checkIn = checkInInput.value;
             const checkOut = checkOutInput.value;
+            const guestName = document.getElementById('name').value;
+            const guestEmail = document.getElementById('email').value;
+            const guests = document.getElementById('guests').value;
 
-            // Validate dates are not empty
-            if (!checkIn || !checkOut) {
-                showAlert('Please select check-in and check-out dates', 'warning');
+            // Validate form fields
+            if (!checkIn || !checkOut || !guestName || !guestEmail || !guests) {
+                showAlert('Please fill in all required fields', 'warning');
                 return;
             }
+
+            // Show loading state
+            const submitButton = bookingForm.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton.innerHTML;
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
 
             try {
                 const response = await fetch('/api/check-room-availability', {
@@ -62,19 +71,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!data.available) {
                     const errorMessage = data.error || 'Sorry, this room is not available for the selected dates.';
                     showAlert(errorMessage, 'warning');
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalButtonText;
                     return;
                 }
                 
-                // If available, submit the form with the date values
-                const formData = new FormData(bookingForm);
-                formData.set('check_in', checkIn);
-                formData.set('check_out', checkOut);
-                
-                // Submit form
+                // If available, submit the form
                 bookingForm.submit();
             } catch (error) {
                 console.error('Error:', error);
-                showAlert(error.message || 'An error occurred while checking room availability. Please try again.', 'danger');
+                showAlert(error.message || 'An error occurred. Please try again.', 'danger');
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText;
             }
         });
 
