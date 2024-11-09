@@ -250,7 +250,8 @@ def admin_delete_room(room_id):
 def admin_update_booking(booking_id):
     try:
         booking = Booking.query.get_or_404(booking_id)
-        new_status = request.form.get('status')
+        data = request.get_json()  # Changed to handle JSON data
+        new_status = data.get('status')  # Get status from JSON data
         if new_status:
             booking.status = new_status
             db.session.commit()

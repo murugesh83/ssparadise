@@ -32,7 +32,7 @@
                     <td>{{ booking.check_in.strftime('%Y-%m-%d') }}</td>
                     <td>{{ booking.check_out.strftime('%Y-%m-%d') }}</td>
                     <td>
-                        <span class="badge {% if booking.status == 'confirmed' %}bg-success{% else %}bg-warning{% endif %}">
+                        <span class="badge {% if booking.status == 'confirmed' %}bg-success{% elif booking.status == 'cancelled' %}bg-danger{% else %}bg-warning{% endif %}">
                             {{ booking.status.title() }}
                         </span>
                     </td>
@@ -67,7 +67,8 @@ function updateBookingStatus(bookingId, status) {
     fetch(`/admin/bookings/${bookingId}/update`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
         },
         body: JSON.stringify({ status: status })
     })
@@ -76,8 +77,12 @@ function updateBookingStatus(bookingId, status) {
         if (data.success) {
             location.reload();
         } else {
-            alert('Error updating booking status');
+            alert(data.error || 'Error updating booking status');
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error updating booking status');
     });
 }
 </script>
