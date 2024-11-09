@@ -30,43 +30,107 @@
         </div>
     </div>
 
-    <div class="alert alert-info mb-4" id="availabilityCounter">
+    <div id="availabilityCounter" class="alert alert-info mb-4">
         Showing all available rooms
     </div>
 
-    <div class="row" id="roomsContainer">
-        {% for room in rooms %}
-        <div class="col-md-4 mb-4 room-item" data-room-id="{{ room.id }}" data-room-type="{{ room.room_type.lower() }}">
-            <div class="card room-card h-100">
-                <img src="{{ room.image_url }}" class="card-img-top room-image" alt="{{ room.name }}">
-                <div class="card-body">
-                    <h5 class="card-title">{{ room.name }}</h5>
-                    <p class="room-type text-muted">{{ room.room_type }}</p>
-                    <div class="mb-2">
-                        {% for i in range(5) %}
-                            {% if i < room.average_rating|round(0, 'floor') %}
-                                <i class="bi bi-star-fill text-warning"></i>
-                            {% else %}
-                                <i class="bi bi-star text-warning"></i>
-                            {% endif %}
-                        {% endfor %}
-                        <span class="ms-1">{{ "%.1f"|format(room.average_rating) }} ({{ room.reviews|length }})</span>
-                    </div>
-                    <p class="card-text">{{ room.description[:150] }}...</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="h5 mb-0">₹{{ "%.2f"|format(room.price) }}/night</span>
-                        <span class="badge bg-info">{{ room.capacity }} Guests</span>
-                    </div>
-                </div>
-                <div class="card-footer bg-transparent border-top-0">
-                    <div class="d-flex justify-content-between">
-                        <a href="{{ url_for('room_detail', room_id=room.id) }}" class="btn btn-outline-primary">View Details</a>
-                        <a href="{{ url_for('booking', room_id=room.id) }}" class="btn btn-primary">Book Now</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Room type</th>
+                    <th>Number of guests</th>
+                    <th>Today's Price</th>
+                    <th>Your choices</th>
+                    <th>Select Rooms</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for room in rooms %}
+                <tr class="room-item" data-room-id="{{ room.id }}" data-room-type="{{ room.room_type.lower() }}">
+                    <td>
+                        <h5>{{ room.name }}</h5>
+                        <p class="room-type text-muted mb-1">{{ room.room_type }}</p>
+                        <div class="mb-2">
+                            {% for i in range(5) %}
+                                {% if i < room.average_rating|round(0, 'floor') %}
+                                    <i class="bi bi-star-fill text-warning"></i>
+                                {% else %}
+                                    <i class="bi bi-star text-warning"></i>
+                                {% endif %}
+                            {% endfor %}
+                            <span class="ms-1">{{ "%.1f"|format(room.average_rating) }} ({{ room.reviews|length }})</span>
+                        </div>
+                        <small class="text-danger">
+                            <i class="bi bi-exclamation-circle"></i>
+                            Only {{ room.capacity }} rooms left
+                        </small>
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-person me-1"></i>
+                            {{ room.capacity }} Guests
+                        </div>
+                        <small class="text-muted">{{ room.description[:100] }}...</small>
+                    </td>
+                    <td>
+                        <div class="price-container">
+                            <span class="original-price text-muted text-decoration-line-through">
+                                ₹{{ "%.2f"|format(room.price * 1.1) }}
+                            </span>
+                            <div class="current-price h5 mb-0">
+                                ₹{{ "%.2f"|format(room.price) }}
+                                <span class="badge bg-primary genius-badge">
+                                    <i class="bi bi-star-fill"></i> Genius
+                                </span>
+                            </div>
+                            <small class="text-success">10% off today</small>
+                        </div>
+                    </td>
+                    <td>
+                        <ul class="list-unstyled mb-0">
+                            <li>
+                                <i class="bi bi-cup-hot text-success me-2"></i>
+                                Breakfast ₹25 (optional)
+                            </li>
+                            <li>
+                                <i class="bi bi-calendar-check text-success me-2"></i>
+                                Free cancellation before Nov 20, 2024
+                            </li>
+                            <li>
+                                <i class="bi bi-credit-card text-success me-2"></i>
+                                No prepayment needed
+                            </li>
+                        </ul>
+                        {% if room.amenities %}
+                        <div class="amenities mt-2">
+                            {% for amenity in room.amenities %}
+                            <span class="badge bg-secondary me-1">
+                                <i class="bi bi-check-circle me-1"></i>{{ amenity }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex flex-column align-items-end">
+                            <select class="form-select mb-2 room-count" style="width: 80px;">
+                                {% for i in range(room.capacity + 1) %}
+                                <option value="{{ i }}">{{ i }}</option>
+                                {% endfor %}
+                            </select>
+                            <a href="{{ url_for('room_detail', room_id=room.id) }}" class="btn btn-sm btn-outline-primary mb-1">
+                                View Details
+                            </a>
+                            <a href="{{ url_for('booking', room_id=room.id) }}" class="btn btn-sm btn-primary">
+                                Book Now
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 {% endblock %}
@@ -125,13 +189,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 const roomId = item.getAttribute('data-room-id');
                 
                 if (data.available_rooms.includes(parseInt(roomId))) {
-                    item.style.display = 'block';
+                    item.style.display = 'table-row';
                 } else {
                     item.style.display = 'none';
                 }
             });
 
-            const visibleRooms = document.querySelectorAll('.room-item[style="display: block"]').length;
+            const visibleRooms = document.querySelectorAll('.room-item[style="display: table-row"]').length;
             availabilityCounter.textContent = `${visibleRooms} room${visibleRooms !== 1 ? 's' : ''} available for selected dates`;
             
         } catch (error) {
@@ -147,11 +211,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         roomItems.forEach(item => {
             if (item.style.display !== 'none') { // Only filter visible items (not filtered by date)
-                const roomName = item.querySelector('.card-title').textContent.toLowerCase();
+                const roomName = item.querySelector('h5').textContent.toLowerCase();
                 const roomType = item.querySelector('.room-type').textContent.toLowerCase();
                 
                 if (roomName.includes(searchTerm) || roomType.includes(searchTerm)) {
-                    item.style.display = 'block';
+                    item.style.display = 'table-row';
                     visibleCount++;
                 } else {
                     item.style.display = 'none';
@@ -160,7 +224,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         if (!this.value) {
-            visibleCount = document.querySelectorAll('.room-item[style="display: block"]').length;
+            visibleCount = document.querySelectorAll('.room-item[style="display: table-row"]').length;
         }
         
         availabilityCounter.textContent = `${visibleCount} room${visibleCount !== 1 ? 's' : ''} available`;

@@ -5,28 +5,23 @@ document.addEventListener('DOMContentLoaded', function() {
         return new bootstrap.Tooltip(tooltipTriggerEl)
     });
 
-    // Room filtering
-    const roomFilter = document.getElementById('roomFilter');
+    // Room filtering and availability checking
     const roomFilterForm = document.getElementById('roomFilterForm');
+    const roomFilter = document.getElementById('roomFilter');
     const checkIn = document.getElementById('checkIn');
     const checkOut = document.getElementById('checkOut');
     const availabilityCounter = document.getElementById('availabilityCounter');
     
-    if (roomFilter && roomFilterForm) {
+    if (roomFilterForm && checkIn && checkOut) {
         // Set minimum dates for check-in and check-out
         const today = new Date();
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
         
-        if (checkIn) {
-            checkIn.min = today.toISOString().split('T')[0];
-            checkIn.value = today.toISOString().split('T')[0];
-        }
-        
-        if (checkOut) {
-            checkOut.min = tomorrow.toISOString().split('T')[0];
-            checkOut.value = tomorrow.toISOString().split('T')[0];
-        }
+        checkIn.min = today.toISOString().split('T')[0];
+        checkIn.value = today.toISOString().split('T')[0];
+        checkOut.min = tomorrow.toISOString().split('T')[0];
+        checkOut.value = tomorrow.toISOString().split('T')[0];
         
         // Update checkout min date when checkin changes
         checkIn.addEventListener('change', function() {
@@ -40,7 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Handle form submission for availability check
+        // Handle availability check form submission
         roomFilterForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -62,16 +57,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     throw new Error(data.error || 'Error checking availability');
                 }
 
-                const roomCards = document.querySelectorAll('.room-item');
+                const roomRows = document.querySelectorAll('.room-item');
                 let visibleCount = 0;
 
-                roomCards.forEach(card => {
-                    const roomId = parseInt(card.getAttribute('data-room-id'));
+                roomRows.forEach(row => {
+                    const roomId = parseInt(row.getAttribute('data-room-id'));
                     if (data.available_rooms.includes(roomId)) {
-                        card.style.display = 'block';
+                        row.style.display = '';
                         visibleCount++;
                     } else {
-                        card.style.display = 'none';
+                        row.style.display = 'none';
                     }
                 });
 
@@ -87,50 +82,53 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Text-based filtering
-        roomFilter.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            const roomCards = document.querySelectorAll('.room-item[style="display: block"]');
-            let visibleCount = 0;
-
-            roomCards.forEach(card => {
-                const roomName = card.querySelector('.card-title').textContent.toLowerCase();
-                const roomType = card.querySelector('.room-type').textContent.toLowerCase();
+        // Handle room count selection
+        document.querySelectorAll('.room-count').forEach(select => {
+            select.addEventListener('change', function() {
+                const row = this.closest('.room-item');
+                const bookNowBtn = row.querySelector('.btn-primary');
+                const roomId = row.getAttribute('data-room-id');
+                const count = parseInt(this.value);
                 
-                if (roomName.includes(searchTerm) || roomType.includes(searchTerm)) {
-                    card.style.display = 'block';
-                    visibleCount++;
+                if (count > 0) {
+                    const baseUrl = bookNowBtn.getAttribute('href').split('?')[0];
+                    bookNowBtn.href = `${baseUrl}?room_count=${count}`;
+                    bookNowBtn.disabled = false;
                 } else {
-                    card.style.display = 'none';
+                    bookNowBtn.disabled = true;
                 }
             });
-
-            // Update counter for text search
-            if (this.value) {
-                availabilityCounter.textContent = `${visibleCount} room${visibleCount !== 1 ? 's' : ''} match your search`;
-            } else {
-                // Trigger availability check to restore original counter
-                roomFilterForm.dispatchEvent(new Event('submit'));
-            }
         });
-    }
 
-    // Smooth scroll for navigation
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-            const href = this.getAttribute('href');
-            if (href && href !== '#' && href.length > 1) {
-                const targetElement = document.querySelector(href);
-                if (targetElement) {
-                    e.preventDefault();
-                    targetElement.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
+        // Text-based filtering
+        if (roomFilter) {
+            roomFilter.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const visibleRows = document.querySelectorAll('.room-item[style=""]');
+                let visibleCount = 0;
+
+                visibleRows.forEach(row => {
+                    const roomName = row.querySelector('h5').textContent.toLowerCase();
+                    const roomType = row.querySelector('.room-type').textContent.toLowerCase();
+                    
+                    if (roomName.includes(searchTerm) || roomType.includes(searchTerm)) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                // Update counter for text search
+                if (this.value) {
+                    availabilityCounter.textContent = `${visibleCount} room${visibleCount !== 1 ? 's' : ''} match your search`;
+                } else {
+                    // Trigger availability check to restore original counter
+                    roomFilterForm.dispatchEvent(new Event('submit'));
                 }
-            }
-        });
-    });
+            });
+        }
+    }
 
     // Enhance navbar transparency on scroll
     const navbar = document.querySelector('.navbar');
