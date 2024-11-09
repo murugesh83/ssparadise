@@ -29,7 +29,8 @@ def init_database():
                 db.Column('room_type', db.String(50), nullable=False),
                 db.Column('amenities', db.JSON),
                 db.Column('image_url', db.String(200)),
-                db.Column('available', db.Boolean, default=True)
+                db.Column('available', db.Boolean, default=True),
+                db.Column('total_rooms', db.Integer, default=1)  # Added total_rooms column
         ).create(db.engine)
         
         # Then create all remaining tables
