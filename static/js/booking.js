@@ -34,6 +34,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const checkIn = checkInInput.value;
             const checkOut = checkOutInput.value;
 
+            // Validate dates are not empty
+            if (!checkIn || !checkOut) {
+                showAlert('Please select check-in and check-out dates', 'warning');
+                return;
+            }
+
             try {
                 const response = await fetch('/api/check-room-availability', {
                     method: 'POST',
@@ -59,7 +65,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
                 
-                // Submit the form if availability check passes
+                // If available, submit the form with the date values
+                const formData = new FormData(bookingForm);
+                formData.set('check_in', checkIn);
+                formData.set('check_out', checkOut);
+                
+                // Submit form
                 bookingForm.submit();
             } catch (error) {
                 console.error('Error:', error);
