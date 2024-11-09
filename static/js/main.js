@@ -62,9 +62,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 roomRows.forEach(row => {
                     const roomId = parseInt(row.getAttribute('data-room-id'));
+                    const availabilityIndicator = row.querySelector('.rooms-left');
+                    
                     if (data.available_rooms.includes(roomId)) {
                         row.style.display = '';
                         visibleCount++;
+                        
+                        // Update rooms left count
+                        if (availabilityIndicator && data.rooms_count) {
+                            const roomsLeft = data.rooms_count[roomId];
+                            availabilityIndicator.textContent = 
+                                `Only ${roomsLeft} room${roomsLeft !== 1 ? 's' : ''} of this type left`;
+                            
+                            // Update room count select options
+                            const roomCountSelect = row.querySelector('.room-count');
+                            if (roomCountSelect) {
+                                roomCountSelect.innerHTML = '';
+                                for (let i = 0; i <= roomsLeft; i++) {
+                                    const option = document.createElement('option');
+                                    option.value = i;
+                                    option.textContent = i;
+                                    roomCountSelect.appendChild(option);
+                                }
+                            }
+                        }
                     } else {
                         row.style.display = 'none';
                     }

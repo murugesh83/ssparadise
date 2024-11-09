@@ -42,28 +42,50 @@ def check_room_availability():
         # Get all rooms that are available
         all_rooms = Room.query.filter_by(available=True).all()
         
-        # Find rooms with conflicting bookings
-        booked_room_ids = db.session.query(Booking.room_id).filter(
+        # Count booked rooms for each room type during the date range
+        booked_rooms_count = db.session.query(
+            Booking.room_id,
+            func.count(Booking.id).label('booking_count')
+        ).filter(
             Booking.status.in_(['confirmed', 'pending']),
             Booking.check_in < check_out,
             Booking.check_out > check_in
-        ).distinct().all()
+        ).group_by(Booking.room_id).all()
         
-        booked_room_ids = [room_id for (room_id,) in booked_room_ids]
+        # Create a dictionary of booked room counts
+        booked_counts = {room_id: count for room_id, count in booked_rooms_count}
         
         if room_id:
             # Single room availability check
             room = Room.query.get(room_id)
             if not room or not room.available:
                 return jsonify({'available': False, 'error': 'Room not available'})
-                
-            return jsonify({'available': room_id not in booked_room_ids})
-        else:
-            # Multiple rooms availability check
-            available_rooms = [room for room in all_rooms if room.id not in booked_room_ids]
+            
+            booked_count = booked_counts.get(room.id, 0)
+            capacity = getattr(room, 'total_rooms', 1)  # Default to 1 if total_rooms not yet added
+            available_rooms = max(0, capacity - booked_count)
             
             return jsonify({
-                'available_rooms': [room.id for room in available_rooms],
+                'available': available_rooms > 0,
+                'rooms_left': available_rooms
+            })
+        else:
+            # Multiple rooms availability check
+            available_rooms = []
+            for room in all_rooms:
+                booked_count = booked_counts.get(room.id, 0)
+                capacity = getattr(room, 'total_rooms', 1)  # Default to 1 if total_rooms not yet added
+                available_rooms_count = max(0, capacity - booked_count)
+                
+                if available_rooms_count > 0:
+                    available_rooms.append({
+                        'id': room.id,
+                        'rooms_left': available_rooms_count
+                    })
+            
+            return jsonify({
+                'available_rooms': [room['id'] for room in available_rooms],
+                'rooms_count': {str(room['id']): room['rooms_left'] for room in available_rooms},
                 'total_rooms': len(all_rooms),
                 'available_count': len(available_rooms)
             })
@@ -244,13 +266,12 @@ def admin_delete_room(room_id):
 def admin_update_booking(booking_id):
     try:
         booking = Booking.query.get_or_404(booking_id)
-        data = request.get_json()  # Changed to handle JSON data
-        new_status = data.get('status')  # Get status from JSON data
+        data = request.get_json()
+        new_status = data.get('status')
         if new_status:
             booking.status = new_status
             db.session.commit()
             
-            # Send email notification about status update
             if send_booking_status_update(booking):
                 return jsonify({'success': True, 'message': 'Booking updated and notification sent'})
             else:
@@ -273,7 +294,6 @@ def admin_cancel_booking(booking_id):
         booking.cancelled_at = datetime.utcnow()
         booking.cancellation_reason = request.form.get('reason', 'Cancelled by admin')
         
-        # Process refund if payment was made
         if booking.payment_status == 'completed':
             try:
                 refund = process_refund(booking.id)
@@ -285,7 +305,6 @@ def admin_cancel_booking(booking_id):
         
         db.session.commit()
         
-        # Send cancellation notification
         if send_booking_status_update(booking):
             return jsonify({'success': True, 'message': 'Booking cancelled and notification sent'})
         else:

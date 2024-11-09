@@ -61,9 +61,9 @@
                             {% endfor %}
                             <span class="ms-1">{{ "%.1f"|format(room.average_rating) }} ({{ room.reviews|length }})</span>
                         </div>
-                        <small class="text-danger">
+                        <small class="text-danger rooms-left">
                             <i class="bi bi-exclamation-circle"></i>
-                            Only {{ room.capacity }} rooms left
+                            Only {{ room.total_rooms if room.total_rooms else 1 }} room{{ 's' if room.total_rooms and room.total_rooms != 1 else '' }} of this type left
                         </small>
                     </td>
                     <td>
