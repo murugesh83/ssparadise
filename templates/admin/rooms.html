@@ -20,6 +20,7 @@
                     <th>Type</th>
                     <th>Price</th>
                     <th>Capacity</th>
+                    <th>Total Rooms</th>
                     <th>Status</th>
                     <th>Actions</th>
                 </tr>
@@ -32,6 +33,7 @@
                     <td>{{ room.room_type }}</td>
                     <td>₹{{ "%.2f"|format(room.price) }}</td>
                     <td>{{ room.capacity }}</td>
+                    <td>{{ room.total_rooms }}</td>
                     <td>
                         <span class="badge {% if room.available %}bg-success{% else %}bg-danger{% endif %}">
                             {{ 'Available' if room.available else 'Unavailable' }}
@@ -73,6 +75,11 @@
                     <div class="mb-3">
                         <label for="capacity" class="form-label">Capacity</label>
                         <input type="number" class="form-control" id="capacity" name="capacity" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="total_rooms" class="form-label">Total Number of Rooms Available</label>
+                        <input type="number" class="form-control" id="total_rooms" name="total_rooms" min="1" value="1" required>
+                        <div class="form-text">Enter the total number of rooms available of this type</div>
                     </div>
                     <div class="mb-3">
                         <label for="image_url" class="form-label">Image URL</label>

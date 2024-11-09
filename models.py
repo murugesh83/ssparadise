@@ -30,6 +30,7 @@ class Room(db.Model):
     amenities = db.Column(db.JSON)
     image_url = db.Column(db.String(200))
     available = db.Column(db.Boolean, default=True)
+    total_rooms = db.Column(db.Integer, default=1)  # Added total_rooms field
     bookings = db.relationship('Booking', backref='room', lazy=True)
     reviews = db.relationship('Review', backref='room', lazy=True)
 

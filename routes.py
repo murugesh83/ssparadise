@@ -216,6 +216,7 @@ def admin_add_room():
         room.room_type = request.form['room_type']
         room.price = float(request.form['price'])
         room.capacity = int(request.form['capacity'])
+        room.total_rooms = int(request.form.get('total_rooms', 1))
         room.image_url = request.form['image_url']
         room.description = request.form['description']
         room.available = bool(request.form.get('available', True))
@@ -238,6 +239,7 @@ def admin_edit_room(room_id):
             room.room_type = request.form['room_type']
             room.price = float(request.form['price'])
             room.capacity = int(request.form['capacity'])
+            room.total_rooms = int(request.form.get('total_rooms', 1))
             room.image_url = request.form['image_url']
             room.description = request.form['description']
             room.available = bool(request.form.get('available'))
