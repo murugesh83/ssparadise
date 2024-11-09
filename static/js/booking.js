@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const checkOut = checkOutInput.value;
 
             try {
-                const response = await fetch('/api/check-availability', {
+                const response = await fetch('/api/check-room-availability', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
