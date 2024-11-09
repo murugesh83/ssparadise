@@ -24,7 +24,7 @@ def retry_on_failure(max_retries=3, delay=1):
         return wrapper
     return decorator
 
-# Email templates with enhanced information
+# Email templates with enhanced information and null checks
 BOOKING_CONFIRMATION_TEMPLATE = '''
 Dear {{ booking.guest_name }},
 
@@ -33,8 +33,8 @@ Thank you for choosing SS Paradise Residency! Your booking has been confirmed.
 Booking Details:
 - Booking ID: {{ booking.id }}
 - Room: {{ booking.room.name }} ({{ booking.room.room_type }})
-- Check-in: {{ booking.check_in.strftime('%Y-%m-%d') }}
-- Check-out: {{ booking.check_out.strftime('%Y-%m-%d') }}
+- Check-in: {{ booking.check_in.strftime('%Y-%m-%d') if booking.check_in else 'N/A' }}
+- Check-out: {{ booking.check_out.strftime('%Y-%m-%d') if booking.check_out else 'N/A' }}
 - Number of Guests: {{ booking.guests }}
 - Total Amount: ₹{{ "%.2f"|format(booking.amount_paid if booking.amount_paid else (booking.room.price * (booking.check_out - booking.check_in).days)) }}
 - Payment Status: {{ booking.payment_status.title() }}
@@ -72,17 +72,17 @@ Your booking status has been updated.
 Booking Details:
 - Booking ID: {{ booking.id }}
 - Room: {{ booking.room.name }} ({{ booking.room.room_type }})
-- Check-in: {{ booking.check_in.strftime('%Y-%m-%d') }}
-- Check-out: {{ booking.check_out.strftime('%Y-%m-%d') }}
+- Check-in: {{ booking.check_in.strftime('%Y-%m-%d') if booking.check_in else 'N/A' }}
+- Check-out: {{ booking.check_out.strftime('%Y-%m-%d') if booking.check_out else 'N/A' }}
 - Number of Guests: {{ booking.guests }}
 - Current Status: {{ booking.status.title() }}
 - Payment Status: {{ booking.payment_status.title() }}
 
 {% if booking.status == 'cancelled' %}
 Cancellation Details:
-- Cancellation Date: {{ booking.cancelled_at.strftime('%Y-%m-%d %H:%M') }}
-- Cancellation Fee: ₹{{ "%.2f"|format(booking.cancellation_fee) }}
-- Refund Amount: ₹{{ "%.2f"|format(booking.refund_amount_available) }}
+- Cancellation Date: {{ booking.cancelled_at.strftime('%Y-%m-%d %H:%M') if booking.cancelled_at else 'N/A' }}
+- Cancellation Fee: ₹{{ "%.2f"|format(booking.cancellation_fee) if booking.cancellation_fee else 0.00 }}
+- Refund Amount: ₹{{ "%.2f"|format(booking.refund_amount_available) if booking.refund_amount_available else 0.00 }}
 - Refund Status: {{ booking.refund_status.title() if booking.refund_status else 'Pending' }}
 {% endif %}
 
@@ -136,9 +136,11 @@ def send_booking_confirmation(booking):
     success = False
     
     try:
-        # Validate email addresses
+        # Validate email addresses and booking data
         if not booking.guest_email:
             raise ValueError("Guest email is required")
+        if not booking.check_in or not booking.check_out:
+            raise ValueError("Invalid booking dates")
         
         msg = Message(
             'Booking Confirmation - SS Paradise Residency',
@@ -172,6 +174,14 @@ def send_booking_status_update(booking):
         # Validate email addresses
         if not booking.guest_email:
             raise ValueError("Guest email is required")
+            
+        # Validate dates before using them
+        if not isinstance(booking.check_in, datetime.date):
+            current_app.logger.warning(f"Invalid check_in date for booking {booking.id}")
+        if not isinstance(booking.check_out, datetime.date):
+            current_app.logger.warning(f"Invalid check_out date for booking {booking.id}")
+        if booking.status == 'cancelled' and not isinstance(booking.cancelled_at, datetime):
+            current_app.logger.warning(f"Invalid cancellation date for booking {booking.id}")
         
         msg = Message(
             'Booking Status Update - SS Paradise Residency',

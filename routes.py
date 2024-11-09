@@ -35,44 +35,37 @@ def check_room_availability():
         # Validate dates
         if check_in >= check_out:
             return jsonify({'error': 'Check-out date must be after check-in date'}), 400
+            
+        if check_in < datetime.now().date():
+            return jsonify({'error': 'Check-in date cannot be in the past'}), 400
         
-        # Get all rooms
+        # Get all rooms that are available
         all_rooms = Room.query.filter_by(available=True).all()
         
         # Find rooms with conflicting bookings
+        booked_room_ids = db.session.query(Booking.room_id).filter(
+            Booking.status.in_(['confirmed', 'pending']),
+            Booking.check_in < check_out,
+            Booking.check_out > check_in
+        ).distinct().all()
+        
+        booked_room_ids = [room_id for (room_id,) in booked_room_ids]
+        
         if room_id:
             # Single room availability check
-            app.logger.info(f"Checking availability for room {room_id} between {check_in} and {check_out}")
             room = Room.query.get(room_id)
             if not room or not room.available:
                 return jsonify({'available': False, 'error': 'Room not available'})
                 
-            conflicting_booking = Booking.query.filter(
-                Booking.room_id == room_id,
-                Booking.status.in_(['confirmed', 'pending']),
-                Booking.check_in < check_out,
-                Booking.check_out > check_in
-            ).first()
-            
-            if conflicting_booking:
-                app.logger.info(f"Found conflicting booking: {conflicting_booking.id}")
-            
-            return jsonify({'available': not bool(conflicting_booking)})
+            return jsonify({'available': room_id not in booked_room_ids})
         else:
             # Multiple rooms availability check
-            booked_room_ids = db.session.query(Booking.room_id).filter(
-                Booking.status != 'cancelled',
-                Booking.check_in < check_out,
-                Booking.check_out > check_in
-            ).distinct().all()
-            
-            booked_room_ids = [room_id for (room_id,) in booked_room_ids]
-            available_room_ids = [room.id for room in all_rooms if room.id not in booked_room_ids]
+            available_rooms = [room for room in all_rooms if room.id not in booked_room_ids]
             
             return jsonify({
-                'available_rooms': available_room_ids,
+                'available_rooms': [room.id for room in available_rooms],
                 'total_rooms': len(all_rooms),
-                'available_count': len(available_room_ids)
+                'available_count': len(available_rooms)
             })
         
     except ValueError as e:
@@ -81,12 +74,6 @@ def check_room_availability():
     except Exception as e:
         app.logger.error(f"Room availability check error: {str(e)}")
         return jsonify({'error': 'Error checking room availability'}), 500
-
-@app.route('/my-bookings')
-@login_required
-def my_bookings():
-    bookings = Booking.query.filter_by(user_id=current_user.id).order_by(Booking.created_at.desc()).all()
-    return render_template('my_bookings.html', bookings=bookings)
 
 @app.route('/rooms')
 def rooms():
@@ -107,6 +94,12 @@ def room_detail(room_id):
         ).filter(Booking.check_out < datetime.now().date()).all()
         can_review = len(completed_bookings) > 0
     return render_template('room_detail.html', room=room, reviews=reviews, can_review=can_review)
+
+@app.route('/my-bookings')
+@login_required
+def my_bookings():
+    bookings = Booking.query.filter_by(user_id=current_user.id).order_by(Booking.created_at.desc()).all()
+    return render_template('my_bookings.html', bookings=bookings)
 
 @app.route('/booking/<int:room_id>', methods=['GET', 'POST'])
 @login_required
@@ -157,6 +150,7 @@ def booking(room_id):
             db.session.rollback()
             flash('Error processing booking. Please try again.', 'error')
             app.logger.error(f"Booking error: {str(e)}")
+            return render_template('booking.html', room=room)
     return render_template('booking.html', room=room)
 
 @app.route('/admin/dashboard')

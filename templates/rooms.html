@@ -11,18 +11,20 @@
             <form id="roomFilterForm" class="row g-3">
                 <div class="col-md-3">
                     <label for="checkIn" class="form-label">Check-in Date</label>
-                    <input type="date" class="form-control" id="checkIn" name="check_in">
+                    <input type="date" class="form-control" id="checkIn" name="check_in" required>
                 </div>
                 <div class="col-md-3">
                     <label for="checkOut" class="form-label">Check-out Date</label>
-                    <input type="date" class="form-control" id="checkOut" name="check_out">
+                    <input type="date" class="form-control" id="checkOut" name="check_out" required>
                 </div>
                 <div class="col-md-4">
                     <label for="roomFilter" class="form-label">Search by name or type</label>
                     <input type="text" id="roomFilter" class="form-control" placeholder="Search rooms...">
                 </div>
                 <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary w-100">Search</button>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search me-2"></i>Check Availability
+                    </button>
                 </div>
             </form>
         </div>
@@ -34,7 +36,7 @@
 
     <div class="row" id="roomsContainer">
         {% for room in rooms %}
-        <div class="col-md-4 mb-4 room-item" data-room-type="{{ room.room_type.lower() }}">
+        <div class="col-md-4 mb-4 room-item" data-room-id="{{ room.id }}" data-room-type="{{ room.room_type.lower() }}">
             <div class="card room-card h-100">
                 <img src="{{ room.image_url }}" class="card-img-top room-image" alt="{{ room.name }}">
                 <div class="card-body">
@@ -120,9 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             
             roomItems.forEach(item => {
-                const roomId = item.querySelector('a[href*="room_id="]')
-                    .getAttribute('href')
-                    .split('room_id=')[1];
+                const roomId = item.getAttribute('data-room-id');
                 
                 if (data.available_rooms.includes(parseInt(roomId))) {
                     item.style.display = 'block';
