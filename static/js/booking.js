@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (!data.available) {
                     const errorMessage = data.error || 'Sorry, this room is not available for the selected dates.';
-                    showAlert(errorMessage, 'danger');
+                    showAlert(errorMessage, 'warning');
                     return;
                 }
                 

@@ -23,44 +23,45 @@ def calculate_occupancy_rate():
 
 @app.route('/api/check-room-availability', methods=['POST'])
 def check_room_availability():
-    """Check room availability for given dates"""
     try:
         data = request.json
-        if not data or 'check_in' not in data or 'check_out' not in data:
-            return jsonify({'error': 'Missing required data'}), 400
+        if not data or 'room_id' not in data or 'check_in' not in data or 'check_out' not in data:
+            return jsonify({'available': False, 'error': 'Missing required data'}), 400
 
+        room_id = data.get('room_id')
         check_in = datetime.strptime(data.get('check_in'), '%Y-%m-%d').date()
         check_out = datetime.strptime(data.get('check_out'), '%Y-%m-%d').date()
         
+        app.logger.info(f"Checking availability for room {room_id} between {check_in} and {check_out}")
+        
         # Validate dates
         if check_in >= check_out:
-            return jsonify({'error': 'Check-out date must be after check-in date'}), 400
+            return jsonify({'available': False, 'error': 'Check-out date must be after check-in date'})
         
-        # Get all rooms
-        all_rooms = Room.query.filter_by(available=True).all()
-        
-        # Find rooms with conflicting bookings
-        booked_room_ids = db.session.query(Booking.room_id).filter(
-            Booking.status != 'cancelled',
+        # Check if room exists and is available
+        room = Room.query.get(room_id)
+        if not room or not room.available:
+            return jsonify({'available': False, 'error': 'Room not available'})
+            
+        # Check for conflicting bookings
+        conflicting_booking = Booking.query.filter(
+            Booking.room_id == room_id,
+            Booking.status.in_(['confirmed', 'pending']),
             Booking.check_in < check_out,
             Booking.check_out > check_in
-        ).distinct().all()
+        ).first()
         
-        booked_room_ids = [room_id for (room_id,) in booked_room_ids]
-        available_room_ids = [room.id for room in all_rooms if room.id not in booked_room_ids]
+        if conflicting_booking:
+            app.logger.info(f"Found conflicting booking: {conflicting_booking.id}")
         
-        return jsonify({
-            'available_rooms': available_room_ids,
-            'total_rooms': len(all_rooms),
-            'available_count': len(available_room_ids)
-        })
+        return jsonify({'available': not bool(conflicting_booking)})
         
     except ValueError as e:
         app.logger.error(f"Date parsing error: {str(e)}")
-        return jsonify({'error': 'Invalid date format'}), 400
+        return jsonify({'available': False, 'error': 'Invalid date format'}), 400
     except Exception as e:
         app.logger.error(f"Room availability check error: {str(e)}")
-        return jsonify({'error': 'Error checking room availability'}), 500
+        return jsonify({'available': False, 'error': 'Error checking availability'}), 500
 
 @app.route('/my-bookings')
 @login_required
