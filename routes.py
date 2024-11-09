@@ -62,11 +62,31 @@ def check_room_availability():
         app.logger.error(f"Room availability check error: {str(e)}")
         return jsonify({'error': 'Error checking room availability'}), 500
 
+@app.route('/my-bookings')
+@login_required
+def my_bookings():
+    bookings = Booking.query.filter_by(user_id=current_user.id).order_by(Booking.created_at.desc()).all()
+    return render_template('my_bookings.html', bookings=bookings)
+
 @app.route('/rooms')
 def rooms():
     """Display all available rooms with filtering capability"""
     rooms = Room.query.filter_by(available=True).all()
     return render_template('rooms.html', rooms=rooms)
+
+@app.route('/room/<int:room_id>')
+def room_detail(room_id):
+    room = Room.query.get_or_404(room_id)
+    reviews = Review.query.filter_by(room_id=room_id).order_by(Review.created_at.desc()).all()
+    can_review = False
+    if current_user.is_authenticated:
+        completed_bookings = Booking.query.filter_by(
+            user_id=current_user.id,
+            room_id=room_id,
+            status='confirmed'
+        ).filter(Booking.check_out < datetime.now().date()).all()
+        can_review = len(completed_bookings) > 0
+    return render_template('room_detail.html', room=room, reviews=reviews, can_review=can_review)
 
 @app.route('/booking/<int:room_id>', methods=['GET', 'POST'])
 @login_required
@@ -139,20 +159,6 @@ def admin_dashboard():
                          stats=stats,
                          recent_activity=recent_activity)
 
-@app.route('/room/<int:room_id>')
-def room_detail(room_id):
-    room = Room.query.get_or_404(room_id)
-    reviews = Review.query.filter_by(room_id=room_id).order_by(Review.created_at.desc()).all()
-    can_review = False
-    if current_user.is_authenticated:
-        completed_bookings = Booking.query.filter_by(
-            user_id=current_user.id,
-            room_id=room_id,
-            status='confirmed'
-        ).filter(Booking.check_out < datetime.now().date()).all()
-        can_review = len(completed_bookings) > 0
-    return render_template('room_detail.html', room=room, reviews=reviews, can_review=can_review)
-
 @app.route('/admin/bookings')
 @admin_required
 def admin_bookings():
@@ -169,15 +175,15 @@ def admin_rooms():
 @admin_required
 def admin_add_room():
     try:
-        room = Room(
-            name=request.form['name'],
-            room_type=request.form['room_type'],
-            price=float(request.form['price']),
-            capacity=int(request.form['capacity']),
-            image_url=request.form['image_url'],
-            description=request.form['description'],
-            available=bool(request.form.get('available', True))
-        )
+        room = Room()
+        room.name = request.form['name']
+        room.room_type = request.form['room_type']
+        room.price = float(request.form['price'])
+        room.capacity = int(request.form['capacity'])
+        room.image_url = request.form['image_url']
+        room.description = request.form['description']
+        room.available = bool(request.form.get('available', True))
+        
         db.session.add(room)
         db.session.commit()
         flash('Room added successfully!', 'success')
