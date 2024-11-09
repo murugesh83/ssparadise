@@ -24,7 +24,6 @@ def retry_on_failure(max_retries=3, delay=1):
         return wrapper
     return decorator
 
-# Email templates with enhanced information and null checks
 BOOKING_CONFIRMATION_TEMPLATE = '''
 Dear {{ booking.guest_name }},
 
@@ -32,13 +31,18 @@ Thank you for choosing SS Paradise Residency! Your booking has been confirmed.
 
 Booking Details:
 - Booking ID: {{ booking.id }}
-- Room: {{ booking.room.name }} ({{ booking.room.room_type }})
 - Check-in: {{ booking.check_in.strftime('%Y-%m-%d') if booking.check_in else 'N/A' }}
 - Check-out: {{ booking.check_out.strftime('%Y-%m-%d') if booking.check_out else 'N/A' }}
 - Number of Guests: {{ booking.guests }}
 - Total Amount: ₹{{ "%.2f"|format(booking.amount_paid if booking.amount_paid else (booking.room.price * (booking.check_out - booking.check_in).days)) }}
 - Payment Status: {{ booking.payment_status.title() }}
 - Payment Option: {{ "Pay Now" if booking.payment_option == 'now' else "Pay Later" }}
+
+Room Details:
+- Room Type: {{ booking.room.room_type }}
+- Capacity: {{ booking.room.capacity }} Guests
+- Amenities: {{ booking.room.amenities|join(', ') }}
+- Total Rooms Booked: {{ booking.room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length }}/{{ booking.room.total_rooms }}
 
 {% if booking.payment_option == 'later' %}
 Important: Payment must be completed before check-in.

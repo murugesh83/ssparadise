@@ -62,20 +62,21 @@ def check_room_availability():
                 return jsonify({'available': False, 'error': 'Room not available'})
             
             booked_count = booked_counts.get(room.id, 0)
-            capacity = getattr(room, 'total_rooms', 1)  # Default to 1 if total_rooms not yet added
-            available_rooms = max(0, capacity - booked_count)
+            available_rooms_count = max(0, room.total_rooms - booked_count)
+            
+            if available_rooms_count <= 0:
+                return jsonify({'available': False, 'error': 'No rooms available for selected dates'})
             
             return jsonify({
-                'available': available_rooms > 0,
-                'rooms_left': available_rooms
+                'available': True,
+                'rooms_left': available_rooms_count
             })
         else:
             # Multiple rooms availability check
             available_rooms = []
             for room in all_rooms:
                 booked_count = booked_counts.get(room.id, 0)
-                capacity = getattr(room, 'total_rooms', 1)  # Default to 1 if total_rooms not yet added
-                available_rooms_count = max(0, capacity - booked_count)
+                available_rooms_count = max(0, room.total_rooms - booked_count)
                 
                 if available_rooms_count > 0:
                     available_rooms.append({
@@ -122,58 +123,6 @@ def room_detail(room_id):
 def my_bookings():
     bookings = Booking.query.filter_by(user_id=current_user.id).order_by(Booking.created_at.desc()).all()
     return render_template('my_bookings.html', bookings=bookings)
-
-@app.route('/booking/<int:room_id>', methods=['GET', 'POST'])
-@login_required
-def booking(room_id):
-    """Handle room booking"""
-    room = Room.query.get_or_404(room_id)
-    if request.method == 'POST':
-        try:
-            payment_option = request.form.get('payment_option', 'now')
-            booking = Booking(
-                room_id=room_id,
-                user_id=current_user.id,
-                guest_name=request.form['name'],
-                guest_email=request.form['email'],
-                check_in=datetime.strptime(request.form['check_in'], '%Y-%m-%d'),
-                check_out=datetime.strptime(request.form['check_out'], '%Y-%m-%d'),
-                guests=int(request.form['guests']),
-                payment_option=payment_option,
-                status='pending'
-            )
-            db.session.add(booking)
-            db.session.commit()
-
-            if payment_option == 'now':
-                payment_intent = create_payment_intent(booking.id)
-                if send_booking_confirmation(booking):
-                    flash('Booking confirmation email sent.', 'success')
-                else:
-                    flash('Could not send confirmation email, but your booking is confirmed.', 'warning')
-                
-                return render_template('payment.html', 
-                                    booking=booking,
-                                    client_secret=payment_intent.client_secret,
-                                    publishable_key=app.config['STRIPE_PUBLISHABLE_KEY'])
-            else:
-                booking.status = 'pending_payment'
-                db.session.commit()
-                
-                if send_booking_confirmation(booking):
-                    flash('Booking confirmation email sent.', 'success')
-                else:
-                    flash('Could not send confirmation email, but your booking is confirmed.', 'warning')
-                
-                flash('Booking confirmed! Please complete your payment before check-in.', 'success')
-                return redirect(url_for('my_bookings'))
-
-        except Exception as e:
-            db.session.rollback()
-            flash('Error processing booking. Please try again.', 'error')
-            app.logger.error(f"Booking error: {str(e)}")
-            return render_template('booking.html', room=room)
-    return render_template('booking.html', room=room)
 
 @app.route('/admin/dashboard')
 @admin_required

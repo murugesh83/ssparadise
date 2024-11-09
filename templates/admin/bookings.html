@@ -12,6 +12,7 @@
                 <tr>
                     <th>ID</th>
                     <th>Room</th>
+                    <th>Total Rooms Booked</th>
                     <th>Guest</th>
                     <th>Check-in</th>
                     <th>Check-out</th>
@@ -25,6 +26,11 @@
                 <tr>
                     <td>{{ booking.id }}</td>
                     <td>{{ booking.room.name }}</td>
+                    <td>
+                        {{ booking.room.total_rooms - booking.room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length }}
+                        /
+                        {{ booking.room.total_rooms }}
+                    </td>
                     <td>
                         {{ booking.guest_name }}<br>
                         <small class="text-muted">{{ booking.guest_email }}</small>

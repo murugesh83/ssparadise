@@ -47,6 +47,7 @@
             </thead>
             <tbody>
                 {% for room in rooms %}
+                {% if room.total_rooms > room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length %}
                 <tr class="room-item" data-room-id="{{ room.id }}" data-room-type="{{ room.room_type.lower() }}">
                     <td>
                         <h5>{{ room.name }}</h5>
@@ -63,7 +64,7 @@
                         </div>
                         <small class="text-danger rooms-left">
                             <i class="bi bi-exclamation-circle"></i>
-                            Only {{ room.total_rooms if room.total_rooms else 1 }} room{{ 's' if room.total_rooms and room.total_rooms != 1 else '' }} of this type left
+                            Only {{ room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length }} room{{ 's' if (room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length) != 1 else '' }} of this type left
                         </small>
                     </td>
                     <td>
@@ -115,7 +116,7 @@
                     <td>
                         <div class="d-flex flex-column align-items-end">
                             <select class="form-select mb-2 room-count" style="width: 80px;">
-                                {% for i in range(room.capacity + 1) %}
+                                {% for i in range(room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length + 1) %}
                                 <option value="{{ i }}">{{ i }}</option>
                                 {% endfor %}
                             </select>
@@ -128,6 +129,7 @@
                         </div>
                     </td>
                 </tr>
+                {% endif %}
                 {% endfor %}
             </tbody>
         </table>
