@@ -30,9 +30,9 @@ document.addEventListener('DOMContentLoaded', function() {
         bookingForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
+            const roomId = document.getElementById('room_id').value;
             const checkIn = checkInInput.value;
             const checkOut = checkOutInput.value;
-            const roomId = document.getElementById('room_id').value;
 
             try {
                 const response = await fetch('/api/check-availability', {
@@ -49,9 +49,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const data = await response.json();
                 
+                if (!response.ok) {
+                    throw new Error(data.error || 'Error checking availability');
+                }
+                
                 if (!data.available) {
-                    const message = data.error || 'Sorry, this room is not available for the selected dates.';
-                    alert(message);
+                    const errorMessage = data.error || 'Sorry, this room is not available for the selected dates.';
+                    showAlert(errorMessage, 'danger');
                     return;
                 }
                 
@@ -59,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 bookingForm.submit();
             } catch (error) {
                 console.error('Error:', error);
-                alert('An error occurred while checking room availability. Please try again.');
+                showAlert(error.message || 'An error occurred while checking room availability. Please try again.', 'danger');
             }
         });
 
@@ -77,3 +81,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Helper function to show alerts
+function showAlert(message, type = 'warning') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const form = document.getElementById('bookingForm');
+    form.insertAdjacentElement('beforebegin', alertDiv);
+    
+    // Auto dismiss after 5 seconds
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
