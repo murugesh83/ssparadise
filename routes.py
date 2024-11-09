@@ -118,6 +118,12 @@ def room_detail(room_id):
         can_review = len(completed_bookings) > 0
     return render_template('room_detail.html', room=room, reviews=reviews, can_review=can_review)
 
+@app.route('/booking/<int:room_id>', methods=['GET', 'POST'])
+@login_required
+def booking(room_id):
+    room = Room.query.get_or_404(room_id)
+    return render_template('booking.html', room=room)
+
 @app.route('/my-bookings')
 @login_required
 def my_bookings():
@@ -169,6 +175,7 @@ def admin_add_room():
         room.image_url = request.form['image_url']
         room.description = request.form['description']
         room.available = bool(request.form.get('available', True))
+        room.amenities = ['Air Conditioning', 'Free Wi-Fi', 'LED TV', 'Attached Bathroom', 'Hot Water']
         
         db.session.add(room)
         db.session.commit()
