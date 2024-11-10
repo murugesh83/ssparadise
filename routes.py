@@ -82,31 +82,25 @@ def check_room_availability():
             'error': 'Error checking room availability'
         }), 500
 
-@app.route('/admin/dashboard')
-@login_required
-@admin_required
-def admin_dashboard():
-    # Get statistics
-    stats = {
-        'total_rooms': Room.query.count(),
-        'active_bookings': Booking.query.filter_by(status='confirmed').count(),
-        'daily_revenue': db.session.query(func.sum(Room.price)).join(Booking).filter(
-            Booking.status == 'confirmed',
-            Booking.check_in <= datetime.now().date(),
-            Booking.check_out > datetime.now().date()
-        ).scalar() or 0,
-        'occupancy_rate': (Booking.query.filter_by(status='confirmed')
-                          .filter(Booking.check_in <= datetime.now().date())
-                          .filter(Booking.check_out > datetime.now().date())
-                          .count() / max(Room.query.count(), 1)) * 100
-    }
-    
-    # Get recent activity
-    recent_activity = Booking.query.order_by(Booking.created_at.desc()).limit(10).all()
-    
-    return render_template('admin/dashboard.html',
-                         stats=stats,
-                         recent_activity=recent_activity)
+@app.route('/rooms')
+def rooms():
+    """Display all available rooms with filtering capability"""
+    rooms = Room.query.filter_by(available=True).all()
+    return render_template('rooms.html', rooms=rooms)
+
+@app.route('/room/<int:room_id>')
+def room_detail(room_id):
+    room = Room.query.get_or_404(room_id)
+    reviews = Review.query.filter_by(room_id=room_id).order_by(Review.created_at.desc()).all()
+    can_review = False
+    if current_user.is_authenticated:
+        completed_bookings = Booking.query.filter_by(
+            user_id=current_user.id,
+            room_id=room_id,
+            status='confirmed'
+        ).filter(Booking.check_out < datetime.now().date()).all()
+        can_review = len(completed_bookings) > 0
+    return render_template('room_detail.html', room=room, reviews=reviews, can_review=can_review)
 
 @app.route('/booking/<int:room_id>', methods=['GET', 'POST'])
 @login_required
@@ -161,18 +155,17 @@ def booking(room_id):
             amount = room.price * days
             
             # Create booking
-            booking = Booking(
-                room_id=room_id,
-                user_id=current_user.id,
-                guest_name=guest_name,
-                guest_email=guest_email,
-                check_in=check_in,
-                check_out=check_out,
-                guests=guests,
-                payment_option=payment_option,
-                status='pending',
-                payment_status='pending'
-            )
+            booking = Booking()
+            booking.room_id = room_id
+            booking.user_id = current_user.id
+            booking.guest_name = guest_name
+            booking.guest_email = guest_email
+            booking.check_in = check_in
+            booking.check_out = check_out
+            booking.guests = guests
+            booking.payment_option = payment_option
+            booking.status = 'pending'
+            booking.payment_status = 'pending'
             
             db.session.add(booking)
             db.session.commit()
@@ -217,26 +210,6 @@ def booking(room_id):
             return redirect(url_for('booking', room_id=room_id))
             
     return render_template('booking.html', room=room)
-
-@app.route('/rooms')
-def rooms():
-    """Display all available rooms with filtering capability"""
-    rooms = Room.query.filter_by(available=True).all()
-    return render_template('rooms.html', rooms=rooms)
-
-@app.route('/room/<int:room_id>')
-def room_detail(room_id):
-    room = Room.query.get_or_404(room_id)
-    reviews = Review.query.filter_by(room_id=room_id).order_by(Review.created_at.desc()).all()
-    can_review = False
-    if current_user.is_authenticated:
-        completed_bookings = Booking.query.filter_by(
-            user_id=current_user.id,
-            room_id=room_id,
-            status='confirmed'
-        ).filter(Booking.check_out < datetime.now().date()).all()
-        can_review = len(completed_bookings) > 0
-    return render_template('room_detail.html', room=room, reviews=reviews, can_review=can_review)
 
 @app.route('/my-bookings')
 @login_required
@@ -303,17 +276,17 @@ def admin_rooms():
 @admin_required
 def admin_add_room():
     try:
-        room = Room(
-            name=request.form.get('name'),
-            description=request.form.get('description'),
-            price=float(request.form.get('price')),
-            capacity=int(request.form.get('capacity')),
-            room_type=request.form.get('room_type'),
-            total_rooms=int(request.form.get('total_rooms', 1)),
-            image_url=request.form.get('image_url'),
-            available=bool(request.form.get('available')),
-            amenities=['Air Conditioning', 'Free Wi-Fi', 'LED TV', 'Attached Bathroom']
-        )
+        room = Room()
+        room.name = request.form.get('name')
+        room.description = request.form.get('description')
+        room.price = float(request.form.get('price'))
+        room.capacity = int(request.form.get('capacity'))
+        room.room_type = request.form.get('room_type')
+        room.total_rooms = int(request.form.get('total_rooms', 1))
+        room.image_url = request.form.get('image_url')
+        room.available = bool(request.form.get('available'))
+        room.amenities = ['Air Conditioning', 'Free Wi-Fi', 'LED TV', 'Attached Bathroom']
+        
         db.session.add(room)
         db.session.commit()
         flash('Room added successfully', 'success')
@@ -360,3 +333,40 @@ def admin_delete_room(room_id):
         db.session.rollback()
         app.logger.error(f"Error deleting room: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/admin/bookings')
+@login_required
+@admin_required
+def admin_bookings():
+    # Get all bookings ordered by creation date
+    bookings = Booking.query.order_by(Booking.created_at.desc()).all()
+    return render_template('admin/bookings.html', bookings=bookings)
+
+@app.route('/admin/bookings/<int:booking_id>/update', methods=['POST'])
+@login_required
+@admin_required
+def admin_update_booking(booking_id):
+    try:
+        booking = Booking.query.get_or_404(booking_id)
+        data = request.get_json()
+        new_status = data.get('status')
+        
+        if new_status not in ['confirmed', 'cancelled']:
+            return jsonify({'success': False, 'error': 'Invalid status'}), 400
+            
+        booking.status = new_status
+        if new_status == 'cancelled':
+            booking.cancelled_at = datetime.utcnow()
+            
+        db.session.commit()
+        
+        # Send email notification
+        if send_booking_status_update(booking):
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': True, 'warning': 'Email notification failed'})
+            
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating booking: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
