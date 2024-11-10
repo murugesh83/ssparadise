@@ -89,4 +89,164 @@ def check_room_availability():
             'error': 'Error checking room availability'
         }), 500
 
-# ... [rest of the file remains unchanged]
+@app.route('/room/<int:room_id>')
+def room_detail(room_id):
+    """Display detailed information about a specific room"""
+    room = Room.query.get_or_404(room_id)
+    reviews = Review.query.filter_by(room_id=room_id).order_by(Review.created_at.desc()).all()
+    can_review = False
+    if current_user.is_authenticated:
+        completed_bookings = Booking.query.filter_by(
+            user_id=current_user.id,
+            room_id=room_id,
+            status='confirmed'
+        ).filter(Booking.check_out < datetime.now().date()).all()
+        can_review = len(completed_bookings) > 0
+    return render_template('room_detail.html', room=room, reviews=reviews, can_review=can_review)
+
+@app.route('/admin/dashboard')
+@login_required
+@admin_required
+def admin_dashboard():
+    try:
+        # Calculate dashboard statistics
+        stats = {
+            'total_rooms': Room.query.count(),
+            'active_bookings': Booking.query.filter_by(status='confirmed').count(),
+            'daily_revenue': db.session.query(func.sum(Room.price)).join(Booking).filter(
+                Booking.status == 'confirmed',
+                Booking.check_in <= datetime.now().date(),
+                Booking.check_out > datetime.now().date()
+            ).scalar() or 0,
+            'occupancy_rate': (Booking.query.filter_by(status='confirmed')
+                            .filter(Booking.check_in <= datetime.now().date())
+                            .filter(Booking.check_out > datetime.now().date())
+                            .count() / max(Room.query.count(), 1)) * 100
+        }
+        
+        # Get recent activity
+        recent_activity = Booking.query.order_by(Booking.created_at.desc()).limit(10).all()
+        
+        return render_template('admin/dashboard.html',
+                            stats=stats,
+                            recent_activity=recent_activity)
+    except Exception as e:
+        app.logger.error(f"Error in admin dashboard: {str(e)}")
+        flash('Error loading dashboard', 'error')
+        return redirect(url_for('index'))
+
+@app.route('/rooms')
+def rooms():
+    """Display all available rooms with filtering capability"""
+    rooms = Room.query.filter_by(available=True).all()
+    return render_template('rooms.html', rooms=rooms)
+
+@app.route('/booking/<int:room_id>', methods=['GET', 'POST'])
+@login_required
+def booking(room_id):
+    room = Room.query.get_or_404(room_id)
+    
+    if request.method == 'POST':
+        try:
+            # Create booking
+            booking = Booking(
+                room_id=room_id,
+                user_id=current_user.id,
+                guest_name=request.form['name'].strip(),
+                guest_email=request.form['email'].strip(),
+                check_in=datetime.strptime(request.form['check_in'], '%Y-%m-%d').date(),
+                check_out=datetime.strptime(request.form['check_out'], '%Y-%m-%d').date(),
+                guests=int(request.form['guests']),
+                payment_option=request.form['payment_option'],
+                status='pending'
+            )
+            
+            db.session.add(booking)
+            
+            # Handle payment
+            if booking.payment_option == 'now':
+                days = (booking.check_out - booking.check_in).days
+                amount = room.price * days * int(request.form['num_rooms'])
+                
+                try:
+                    intent = create_payment_intent(amount)
+                    booking.payment_intent_id = intent.id
+                    db.session.commit()
+                    return redirect(url_for('payment', booking_id=booking.id))
+                except Exception as e:
+                    db.session.rollback()
+                    raise e
+            else:
+                booking.status = 'confirmed'
+                db.session.commit()
+                
+                try:
+                    send_booking_confirmation(booking)
+                except Exception as e:
+                    app.logger.error(f"Error sending confirmation email: {str(e)}")
+                
+                flash('Booking confirmed! Please complete payment before check-in.', 'success')
+                return redirect(url_for('my_bookings'))
+                
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Booking error: {str(e)}")
+            flash('An error occurred while processing your booking. Please try again.', 'error')
+            return redirect(url_for('booking', room_id=room_id))
+            
+    return render_template('booking.html', room=room)
+
+@app.route('/my-bookings')
+@login_required
+def my_bookings():
+    bookings = Booking.query.filter_by(user_id=current_user.id).order_by(Booking.created_at.desc()).all()
+    return render_template('my_bookings.html', bookings=bookings)
+
+@app.route('/bookings/<int:booking_id>/cancel', methods=['POST'])
+@login_required
+def cancel_booking(booking_id):
+    try:
+        booking = Booking.query.get_or_404(booking_id)
+        
+        # Verify booking belongs to user
+        if booking.user_id != current_user.id:
+            flash('Unauthorized access', 'error')
+            return redirect(url_for('my_bookings'))
+        
+        # Check if booking can be cancelled
+        if not booking.can_cancel:
+            flash('This booking cannot be cancelled', 'error')
+            return redirect(url_for('my_bookings'))
+        
+        booking.status = 'cancelled'
+        booking.cancelled_at = datetime.utcnow()
+        booking.cancellation_reason = request.form.get('cancellation_reason')
+        
+        # Process refund if payment was made
+        if booking.payment_status == 'completed':
+            try:
+                refund = process_refund(booking.payment_intent_id)
+                if refund:
+                    booking.refund_status = 'completed'
+                    booking.refund_amount = booking.refund_amount_available
+            except Exception as e:
+                app.logger.error(f"Refund processing error: {str(e)}")
+                booking.refund_status = 'failed'
+        
+        db.session.commit()
+        
+        # Send cancellation notification
+        try:
+            send_booking_status_update(booking)
+            flash('Booking cancelled successfully. Check your email for details.', 'success')
+        except Exception as e:
+            app.logger.error(f"Error sending cancellation email: {str(e)}")
+            flash('Booking cancelled but email notification failed.', 'warning')
+            
+        return redirect(url_for('my_bookings'))
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error cancelling booking: {str(e)}")
+        flash('Error cancelling booking. Please try again.', 'error')
+        return redirect(url_for('my_bookings'))
