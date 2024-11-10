@@ -77,6 +77,8 @@ function initializeDatePickers(checkIn, checkOut) {
 
 // Initialize room filtering functionality
 function initializeRoomFiltering(form, filter, checkIn, checkOut, counter) {
+    if (!form) return;
+    
     // Handle room filter form submission
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -85,7 +87,8 @@ function initializeRoomFiltering(form, filter, checkIn, checkOut, counter) {
             const response = await fetch('/api/check-room-availability', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify({
                     check_in: checkIn.value,
@@ -107,8 +110,9 @@ function initializeRoomFiltering(form, filter, checkIn, checkOut, counter) {
         } catch (error) {
             console.error('Error:', error);
             if (counter) {
-                counter.innerHTML = 
-                    `<i class="bi bi-exclamation-triangle me-2"></i>${error.message || 'Error checking room availability'}`;
+                counter.innerHTML = `<div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>${error.message || 'Error checking room availability'}
+                </div>`;
             }
         }
     });
@@ -127,19 +131,19 @@ function initializeRoomFiltering(form, filter, checkIn, checkOut, counter) {
 
 // Update room availability display
 function updateRoomAvailability(data, counter) {
-    const roomRows = document.querySelectorAll('.room-item');
+    const roomItems = document.querySelectorAll('.room-item');
     let totalAvailable = 0;
     let totalCapacity = 0;
 
-    if (!roomRows.length) return;
+    if (!roomItems.length) return;
 
-    roomRows.forEach(row => {
-        const roomId = parseInt(row.getAttribute('data-room-id'));
-        const availabilityIndicator = row.querySelector('.rooms-left');
-        const roomCountSelect = row.querySelector('.room-count');
+    roomItems.forEach(item => {
+        const roomId = parseInt(item.getAttribute('data-room-id'));
+        const availabilityIndicator = item.querySelector('.rooms-left');
+        const roomCountSelect = item.querySelector('.room-count');
         
         if (data.available_rooms.includes(roomId)) {
-            row.style.display = 'table-row';
+            item.style.display = '';
             const roomData = data.rooms_count[roomId];
             const available = roomData.available;
             const total = roomData.total;
@@ -149,8 +153,8 @@ function updateRoomAvailability(data, counter) {
             
             if (availabilityIndicator) {
                 availabilityIndicator.innerHTML = 
-                    `<i class="bi bi-exclamation-circle"></i> ` +
-                    `Only ${available} out of ${total} room${total !== 1 ? 's' : ''} available`;
+                    `<i class="bi bi-exclamation-circle"></i> 
+                     Only ${available} out of ${total} room${total !== 1 ? 's' : ''} available`;
             }
             
             if (roomCountSelect) {
@@ -163,56 +167,42 @@ function updateRoomAvailability(data, counter) {
                 }
             }
         } else {
-            row.style.display = 'none';
+            item.style.display = 'none';
         }
     });
 
     if (counter) {
-        const checkInDate = new Date(document.querySelector('#checkIn').value).toLocaleDateString();
-        const checkOutDate = new Date(document.querySelector('#checkOut').value).toLocaleDateString();
-        counter.innerHTML = 
-            `<i class="bi bi-calendar-check me-2"></i>` +
-            `${totalAvailable} out of ${totalCapacity} rooms available between ` +
-            `<strong>${checkInDate}</strong> and <strong>${checkOutDate}</strong>`;
+        const checkInDate = new Date(checkIn.value).toLocaleDateString();
+        const checkOutDate = new Date(checkOut.value).toLocaleDateString();
+        counter.innerHTML = `<div class="alert alert-info">
+            <i class="bi bi-calendar-check me-2"></i>
+            ${totalAvailable} out of ${totalCapacity} rooms available between 
+            <strong>${checkInDate}</strong> and <strong>${checkOutDate}</strong>
+        </div>`;
     }
 }
 
 // Filter rooms by search term
 function filterRoomsBySearchTerm(searchTerm, counter) {
-    const visibleRows = document.querySelectorAll('.room-item[style="display: table-row"]');
-    let totalAvailable = 0;
-    let totalCapacity = 0;
+    const visibleRooms = document.querySelectorAll('.room-item:not([style*="display: none"])');
+    let visibleCount = 0;
 
-    if (!visibleRows.length) return;
-
-    visibleRows.forEach(row => {
-        const roomName = row.querySelector('h5');
-        const roomType = row.querySelector('.room-type');
-        const availabilityText = row.querySelector('.rooms-left').textContent;
-        const [available, total] = availabilityText.match(/(\d+)/g).map(Number);
+    visibleRooms.forEach(room => {
+        const roomName = room.querySelector('h5')?.textContent.toLowerCase() || '';
+        const roomType = room.querySelector('.room-type')?.textContent.toLowerCase() || '';
         
-        if (roomName && roomType) {
-            const name = roomName.textContent.toLowerCase();
-            const type = roomType.textContent.toLowerCase();
-            
-            if (name.includes(searchTerm) || type.includes(searchTerm)) {
-                row.style.display = 'table-row';
-                totalAvailable += available;
-                totalCapacity += total;
-            } else {
-                row.style.display = 'none';
-            }
+        if (roomName.includes(searchTerm) || roomType.includes(searchTerm)) {
+            room.style.display = '';
+            visibleCount++;
+        } else {
+            room.style.display = 'none';
         }
     });
 
     if (counter) {
-        if (searchTerm) {
-            counter.innerHTML = 
-                `<i class="bi bi-search me-2"></i>` +
-                `${totalAvailable} out of ${totalCapacity} rooms match your search`;
-        } else {
-            // Trigger availability check to restore original counter
-            document.querySelector('#roomFilterForm')?.dispatchEvent(new Event('submit'));
-        }
+        counter.innerHTML = `<div class="alert alert-info">
+            <i class="bi bi-search me-2"></i>
+            ${visibleCount} room${visibleCount !== 1 ? 's' : ''} match your search
+        </div>`;
     }
 }

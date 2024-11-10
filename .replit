@@ -59,7 +59,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python main.py"
+args = "python app.py"
 waitForPort = 5000
 
 [[workflows.workflow]]
@@ -175,7 +175,7 @@ task = "shell.exec"
 args = "python init_db.py && python seed_rooms.py && python create_admin.py"
 
 [deployment]
-run = ["sh", "-c", "python main.py"]
+run = ["sh", "-c", "python app.py"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
