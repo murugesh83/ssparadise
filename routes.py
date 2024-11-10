@@ -43,6 +43,69 @@ def admin_rooms():
     rooms = Room.query.all()
     return render_template('admin/rooms.html', rooms=rooms)
 
+@app.route('/admin/rooms/add', methods=['POST'])
+@login_required
+@admin_required
+def admin_add_room():
+    try:
+        room = Room(
+            name=request.form.get('name'),
+            description=request.form.get('description'),
+            price=float(request.form.get('price')),
+            capacity=int(request.form.get('capacity')),
+            room_type=request.form.get('room_type'),
+            total_rooms=int(request.form.get('total_rooms', 1)),
+            image_url=request.form.get('image_url'),
+            available=bool(request.form.get('available')),
+            amenities=['Air Conditioning', 'Free Wi-Fi', 'LED TV', 'Attached Bathroom']
+        )
+        db.session.add(room)
+        db.session.commit()
+        flash('Room added successfully', 'success')
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error adding room: {str(e)}")
+        flash('Error adding room', 'error')
+    return redirect(url_for('admin_rooms'))
+
+@app.route('/admin/rooms/<int:room_id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_edit_room(room_id):
+    room = Room.query.get_or_404(room_id)
+    if request.method == 'POST':
+        try:
+            room.name = request.form.get('name')
+            room.description = request.form.get('description')
+            room.price = float(request.form.get('price'))
+            room.capacity = int(request.form.get('capacity'))
+            room.room_type = request.form.get('room_type')
+            room.total_rooms = int(request.form.get('total_rooms', 1))
+            room.image_url = request.form.get('image_url')
+            room.available = bool(request.form.get('available'))
+            db.session.commit()
+            flash('Room updated successfully', 'success')
+            return redirect(url_for('admin_rooms'))
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error updating room: {str(e)}")
+            flash('Error updating room', 'error')
+    return render_template('admin/edit_room.html', room=room)
+
+@app.route('/admin/rooms/<int:room_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def admin_delete_room(room_id):
+    try:
+        room = Room.query.get_or_404(room_id)
+        db.session.delete(room)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting room: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/admin/bookings')
 @login_required
 @admin_required
@@ -82,7 +145,7 @@ def cancel_booking(booking_id):
         # Process refund if payment was made
         if booking.payment_status == 'completed':
             try:
-                refund = process_refund(booking.payment_intent_id, booking.refund_amount_available)
+                refund = process_refund(booking.payment_intent_id)
                 if refund:
                     booking.refund_status = 'completed'
                     booking.refund_amount = booking.refund_amount_available
