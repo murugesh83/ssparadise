@@ -264,6 +264,37 @@ def cancel_booking(booking_id):
         flash('Error cancelling booking. Please try again.', 'error')
         return redirect(url_for('my_bookings'))
 
+@app.route('/admin/dashboard')
+@login_required
+@admin_required
+def admin_dashboard():
+    try:
+        # Calculate statistics
+        stats = {
+            'total_rooms': Room.query.count(),
+            'active_bookings': Booking.query.filter_by(status='confirmed').count(),
+            'daily_revenue': db.session.query(func.sum(Room.price)).join(Booking).filter(
+                Booking.status == 'confirmed',
+                Booking.check_in <= datetime.now().date(),
+                Booking.check_out > datetime.now().date()
+            ).scalar() or 0,
+            'occupancy_rate': (Booking.query.filter_by(status='confirmed')
+                            .filter(Booking.check_in <= datetime.now().date())
+                            .filter(Booking.check_out > datetime.now().date())
+                            .count() / max(Room.query.count(), 1)) * 100
+        }
+        
+        # Get recent activity (last 10 bookings)
+        recent_activity = Booking.query.order_by(Booking.created_at.desc()).limit(10).all()
+        
+        return render_template('admin/dashboard.html',
+                            stats=stats,
+                            recent_activity=recent_activity)
+    except Exception as e:
+        app.logger.error(f"Error in admin dashboard: {str(e)}")
+        flash('Error loading dashboard', 'error')
+        return redirect(url_for('index'))
+
 @app.route('/admin/rooms')
 @login_required
 @admin_required
