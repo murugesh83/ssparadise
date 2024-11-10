@@ -134,6 +134,7 @@ function updateRoomAvailability(data, counter) {
     const roomItems = document.querySelectorAll('.room-item');
     let totalAvailable = 0;
     let totalCapacity = 0;
+    let roomTypeStats = {};
 
     if (!roomItems.length) return;
 
@@ -145,21 +146,31 @@ function updateRoomAvailability(data, counter) {
         if (data.available_rooms.includes(roomId)) {
             item.style.display = '';
             const roomData = data.rooms_count[roomId];
-            const available = roomData.available;
-            const total = roomData.total;
+            const available = Math.min(roomData.available, 6); // Ensure we never show more than 6
+            const total = Math.min(roomData.total, 6); // Cap total at 6
+            const roomType = roomData.room_type;
+            
+            // Track stats per room type
+            if (!roomTypeStats[roomType]) {
+                roomTypeStats[roomType] = { available: 0, total: 0 };
+            }
+            roomTypeStats[roomType].available += available;
+            roomTypeStats[roomType].total += total;
             
             totalAvailable += available;
             totalCapacity += total;
             
             if (availabilityIndicator) {
-                availabilityIndicator.innerHTML = 
-                    `<i class="bi bi-exclamation-circle"></i> 
-                     Only ${available} out of ${total} room${total !== 1 ? 's' : ''} available`;
+                availabilityIndicator.innerHTML = `
+                    <i class="bi bi-exclamation-circle"></i>
+                    ${available} out of ${total} rooms available
+                    <br>
+                    <small class="text-muted">Maximum ${total} rooms per booking</small>`;
             }
             
             if (roomCountSelect) {
                 roomCountSelect.innerHTML = '';
-                for (let i = 0; i <= available; i++) {
+                for (let i = 0; i <= Math.min(available, 6); i++) {
                     const option = document.createElement('option');
                     option.value = i;
                     option.textContent = i;
@@ -172,13 +183,26 @@ function updateRoomAvailability(data, counter) {
     });
 
     if (counter) {
-        const checkInDate = new Date(checkIn.value).toLocaleDateString();
-        const checkOutDate = new Date(checkOut.value).toLocaleDateString();
-        counter.innerHTML = `<div class="alert alert-info">
-            <i class="bi bi-calendar-check me-2"></i>
-            ${totalAvailable} out of ${totalCapacity} rooms available between 
-            <strong>${checkInDate}</strong> and <strong>${checkOutDate}</strong>
-        </div>`;
+        const checkInDate = document.getElementById('checkIn')?.value;
+        const checkOutDate = document.getElementById('checkOut')?.value;
+        
+        let availabilityHTML = '<div class="alert alert-info">';
+        availabilityHTML += '<i class="bi bi-info-circle me-2"></i>';
+        
+        if (checkInDate && checkOutDate) {
+            availabilityHTML += `Available rooms for ${new Date(checkInDate).toLocaleDateString()} - ${new Date(checkOutDate).toLocaleDateString()}:<br>`;
+        }
+        
+        // Show availability by room type
+        Object.entries(roomTypeStats).forEach(([type, stats]) => {
+            availabilityHTML += `
+                <div class="mt-2">
+                    <strong>${type}:</strong> ${stats.available} out of ${stats.total} rooms available
+                </div>`;
+        });
+        
+        availabilityHTML += '</div>';
+        counter.innerHTML = availabilityHTML;
     }
 }
 

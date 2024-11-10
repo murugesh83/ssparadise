@@ -31,7 +31,7 @@
     </div>
 
     <div id="availabilityCounter" class="alert alert-info mb-4">
-        Showing all available rooms
+        <i class="bi bi-info-circle me-2"></i>Select dates to check room availability
     </div>
 
     <div class="table-responsive">
@@ -61,16 +61,18 @@
                             {% endfor %}
                             <span class="ms-1">{{ "%.1f"|format(room.average_rating) }} ({{ room.reviews|length }})</span>
                         </div>
-                        <small class="text-danger rooms-left">
+                        <div class="rooms-left text-danger">
                             <i class="bi bi-exclamation-circle"></i>
-                            {% set available = room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length %}
-                            Only {{ available }} out of {{ room.total_rooms }} room{{ 's' if room.total_rooms != 1 else '' }} available
-                        </small>
+                            {% set available = min(room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length, 6) %}
+                            {{ available }} out of {{ min(room.total_rooms, 6) }} rooms available
+                            <br>
+                            <small class="text-muted">Maximum 6 rooms per booking</small>
+                        </div>
                     </td>
                     <td>
                         <div class="d-flex align-items-center">
                             <i class="bi bi-person me-1"></i>
-                            {{ room.capacity }} Guests
+                            {{ room.capacity }} Guests per room
                         </div>
                         <small class="text-muted">{{ room.description[:100] }}...</small>
                     </td>
@@ -103,20 +105,11 @@
                                 No prepayment needed
                             </li>
                         </ul>
-                        {% if room.amenities %}
-                        <div class="amenities mt-2">
-                            {% for amenity in room.amenities %}
-                            <span class="badge bg-secondary me-1">
-                                <i class="bi bi-check-circle me-1"></i>{{ amenity }}
-                            </span>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
                     </td>
                     <td>
                         <div class="d-flex flex-column align-items-end">
                             <select class="form-select mb-2 room-count" style="width: 80px;">
-                                {% set available = room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length %}
+                                {% set available = min(room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length, 6) %}
                                 {% for i in range(available + 1) %}
                                 <option value="{{ i }}">{{ i }}</option>
                                 {% endfor %}
