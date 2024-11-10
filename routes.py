@@ -89,6 +89,42 @@ def check_room_availability():
             'error': 'Error checking room availability'
         }), 500
 
+@app.route('/admin/bookings')
+@login_required
+@admin_required
+def admin_bookings():
+    bookings = Booking.query.order_by(Booking.created_at.desc()).all()
+    return render_template('admin/bookings.html', bookings=bookings)
+
+@app.route('/admin/bookings/<int:booking_id>/update', methods=['POST'])
+@login_required
+@admin_required
+def admin_update_booking(booking_id):
+    try:
+        booking = Booking.query.get_or_404(booking_id)
+        data = request.get_json()
+        new_status = data.get('status')
+        
+        if new_status not in ['confirmed', 'cancelled']:
+            return jsonify({'success': False, 'error': 'Invalid status'}), 400
+            
+        booking.status = new_status
+        if new_status == 'cancelled':
+            booking.cancelled_at = datetime.utcnow()
+            
+        db.session.commit()
+        
+        # Send email notification
+        if send_booking_status_update(booking):
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': True, 'warning': 'Email notification failed'})
+            
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating booking: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/room/<int:room_id>')
 def room_detail(room_id):
     """Display detailed information about a specific room"""
