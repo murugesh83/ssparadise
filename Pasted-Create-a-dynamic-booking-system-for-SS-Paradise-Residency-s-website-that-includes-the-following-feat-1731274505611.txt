@@ -1,0 +1,36 @@
+Create a dynamic booking system for SS Paradise Residency's website that includes the following features and specifications:
+
+Booking Information Fields:
+
+Capture and display essential booking details, including:
+Full Name
+Title (e.g., Admin)
+Email
+Check-in Date
+Check-out Date
+Number of Rooms Selected (synchronized with the 'Select Rooms' choice from the previous page)
+Number of Guests
+Payment Option
+Room Selection Synchronization:
+
+Ensure that the number of rooms selected on the previous page (Select Rooms) is updated and displayed consistently across all pages where booking details are shown.
+When a user modifies the room selection, automatically update the number of rooms in all instances across the site, including in summaries, payment pages, and confirmation emails.
+Data Persistence:
+
+Implement a system that stores the booking information temporarily throughout the booking process. This ensures users can navigate between pages without losing data.
+Use session storage or a similar method to maintain information until the booking is complete.
+Automatic Calculation of Total Cost:
+
+Include logic to calculate the total cost based on room selection, number of nights, and any additional options. Display this in real-time as the user adjusts their selections.
+User-Friendly Interface:
+
+Provide a summary panel that displays the booking details (including room count) on each step of the booking process, ensuring clarity for the user.
+Ensure any updates to information, like dates or room selection, are immediately reflected in this summary panel.
+Confirmation and Syncing Across Pages:
+
+Upon finalizing the booking, generate a summary page and confirmation email that includes all booking details, including the selected number of rooms.
+Maintain synchronization with all backend records to ensure accuracy if the user revisits their booking details later.
+Responsive Design and Accessibility:
+
+Ensure the booking system is responsive on all device sizes and accessible to all users, providing clear labels and instructions.
+This system will streamline the booking process, provide accurate, synchronized information across all parts of the website, and improve user experience by allowing easy modifications and updates."
