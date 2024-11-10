@@ -142,9 +142,14 @@ def init_database():
     except Exception as e:
         logger.error(f"Database initialization error: {str(e)}")
         # Ensure we rollback any failed transaction
-        if db.session.is_active:
+        try:
             db.session.rollback()
+        except:
+            pass
         return False
+    finally:
+        # Always make sure to clean up the session
+        db.session.remove()
 
 # Initialize database and import routes
 with app.app_context():
@@ -153,10 +158,14 @@ with app.app_context():
     from oauth_routes import *
     from auth_routes import *
     
-    # Initialize database
-    success = init_database()
-    if not success:
-        logger.error("Failed to initialize database")
+    try:
+        # Initialize database
+        db.session.remove()  # Clean up any existing sessions
+        success = init_database()
+        if not success:
+            logger.error("Failed to initialize database")
+    except Exception as e:
+        logger.error(f"Error during initialization: {str(e)}")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

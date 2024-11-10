@@ -12,6 +12,13 @@
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">{{ booking.room.name }}</h5>
+                        <div class="room-availability mb-2">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i>
+                                {{ booking.room.total_rooms - booking.room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length }}
+                                out of {{ booking.room.total_rooms }} rooms available
+                            </small>
+                        </div>
                         <p class="card-text">
                             <strong>Check-in:</strong> {{ booking.check_in.strftime('%Y-%m-%d') }}<br>
                             <strong>Check-out:</strong> {{ booking.check_out.strftime('%Y-%m-%d') }}<br>
