@@ -10,6 +10,55 @@ from email_utils import send_booking_confirmation, send_booking_status_update
 import stripe
 from sqlalchemy import func, and_, not_
 
+@app.route('/admin/dashboard')
+@login_required
+@admin_required
+def admin_dashboard():
+    # Get statistics
+    stats = {
+        'total_rooms': Room.query.count(),
+        'active_bookings': Booking.query.filter_by(status='confirmed').count(),
+        'daily_revenue': db.session.query(func.sum(Room.price)).join(Booking).filter(
+            Booking.status == 'confirmed',
+            Booking.check_in <= datetime.now().date(),
+            Booking.check_out > datetime.now().date()
+        ).scalar() or 0,
+        'occupancy_rate': (Booking.query.filter_by(status='confirmed')
+                          .filter(Booking.check_in <= datetime.now().date())
+                          .filter(Booking.check_out > datetime.now().date())
+                          .count() / max(Room.query.count(), 1)) * 100
+    }
+    
+    # Get recent activity
+    recent_activity = Booking.query.order_by(Booking.created_at.desc()).limit(10).all()
+    
+    return render_template('admin/dashboard.html',
+                         stats=stats,
+                         recent_activity=recent_activity)
+
+@app.route('/admin/rooms')
+@login_required
+@admin_required
+def admin_rooms():
+    rooms = Room.query.all()
+    return render_template('admin/rooms.html', rooms=rooms)
+
+@app.route('/admin/bookings')
+@login_required
+@admin_required
+def admin_bookings():
+    bookings = Booking.query.order_by(Booking.created_at.desc()).all()
+    return render_template('admin/bookings.html', bookings=bookings)
+
+@app.route('/booking/<int:room_id>', methods=['GET', 'POST'])
+@login_required
+def booking(room_id):
+    room = Room.query.get_or_404(room_id)
+    if request.method == 'POST':
+        # Handle booking submission
+        return redirect(url_for('my_bookings'))
+    return render_template('booking.html', room=room)
+
 @app.route('/bookings/<int:booking_id>/cancel', methods=['POST'])
 @login_required
 def cancel_booking(booking_id):
@@ -26,16 +75,11 @@ def cancel_booking(booking_id):
             flash('This booking cannot be cancelled', 'error')
             return redirect(url_for('my_bookings'))
         
-        if booking.status == 'cancelled':
-            flash('Booking is already cancelled', 'warning')
-            return redirect(url_for('my_bookings'))
-        
-        # Update booking status
         booking.status = 'cancelled'
         booking.cancelled_at = datetime.utcnow()
         booking.cancellation_reason = request.form.get('cancellation_reason')
         
-        # Handle refund if payment was made
+        # Process refund if payment was made
         if booking.payment_status == 'completed':
             try:
                 refund = process_refund(booking.payment_intent_id, booking.refund_amount_available)
@@ -48,16 +92,12 @@ def cancel_booking(booking_id):
         
         db.session.commit()
         
-        # Send cancellation email
-        try:
-            if send_booking_status_update(booking):
-                flash('Booking cancelled successfully. Check your email for details.', 'success')
-            else:
-                flash('Booking cancelled but email notification failed.', 'warning')
-        except Exception as e:
-            app.logger.error(f"Error sending cancellation email: {str(e)}")
+        # Send cancellation notification
+        if send_booking_status_update(booking):
+            flash('Booking cancelled successfully. Check your email for details.', 'success')
+        else:
             flash('Booking cancelled but email notification failed.', 'warning')
-        
+            
         return redirect(url_for('my_bookings'))
         
     except Exception as e:
