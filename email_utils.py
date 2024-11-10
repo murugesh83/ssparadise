@@ -3,7 +3,7 @@ from flask_mail import Mail, Message
 from flask import render_template_string, current_app
 from functools import wraps
 import time
-from datetime import datetime
+from datetime import date, datetime
 
 mail = Mail()
 
@@ -180,9 +180,9 @@ def send_booking_status_update(booking):
             raise ValueError("Guest email is required")
             
         # Validate dates before using them
-        if not isinstance(booking.check_in, datetime.date):
+        if not isinstance(booking.check_in, date):
             current_app.logger.warning(f"Invalid check_in date for booking {booking.id}")
-        if not isinstance(booking.check_out, datetime.date):
+        if not isinstance(booking.check_out, date):
             current_app.logger.warning(f"Invalid check_out date for booking {booking.id}")
         if booking.status == 'cancelled' and not isinstance(booking.cancelled_at, datetime):
             current_app.logger.warning(f"Invalid cancellation date for booking {booking.id}")
