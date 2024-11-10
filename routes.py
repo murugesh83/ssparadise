@@ -112,100 +112,46 @@ def booking(room_id):
     
     if request.method == 'POST':
         try:
-            # Get and validate form data
-            check_in = datetime.strptime(request.form['check_in'], '%Y-%m-%d').date()
-            check_out = datetime.strptime(request.form['check_out'], '%Y-%m-%d').date()
-            guests = int(request.form['guests'])
-            guest_name = request.form['name'].strip()
-            guest_email = request.form['email'].strip()
-            payment_option = request.form['payment_option']
-
-            # Validate dates
-            if check_in >= check_out:
-                flash('Check-in date must be before check-out date', 'error')
-                return redirect(url_for('booking', room_id=room_id))
-
-            if check_in < datetime.now().date():
-                flash('Check-in date cannot be in the past', 'error')
-                return redirect(url_for('booking', room_id=room_id))
-
-            # Validate guest count
-            if guests < 1 or guests > room.capacity:
-                flash(f'Number of guests must be between 1 and {room.capacity}', 'error')
-                return redirect(url_for('booking', room_id=room_id))
-
-            # Validate email
-            try:
-                validate_email(guest_email)
-            except EmailNotValidError:
-                flash('Please enter a valid email address', 'error')
-                return redirect(url_for('booking', room_id=room_id))
-            
-            # Verify room availability
-            existing_bookings = Booking.query.filter(
-                Booking.room_id == room_id,
-                Booking.status == 'confirmed',
-                Booking.check_in < check_out,
-                Booking.check_out > check_in
-            ).count()
-            
-            if existing_bookings >= room.total_rooms:
-                flash('Sorry, this room is not available for the selected dates.', 'error')
-                return redirect(url_for('booking', room_id=room_id))
-            
-            # Calculate total amount
-            days = (check_out - check_in).days
-            amount = room.price * days
-            
             # Create booking
-            booking = Booking()
-            booking.room_id = room_id
-            booking.user_id = current_user.id
-            booking.guest_name = guest_name
-            booking.guest_email = guest_email
-            booking.check_in = check_in
-            booking.check_out = check_out
-            booking.guests = guests
-            booking.payment_option = payment_option
-            booking.status = 'pending'
-            booking.payment_status = 'pending'
+            booking = Booking(
+                room_id=room_id,
+                user_id=current_user.id,
+                guest_name=request.form['name'].strip(),
+                guest_email=request.form['email'].strip(),
+                check_in=datetime.strptime(request.form['check_in'], '%Y-%m-%d').date(),
+                check_out=datetime.strptime(request.form['check_out'], '%Y-%m-%d').date(),
+                guests=int(request.form['guests']),
+                payment_option=request.form['payment_option'],
+                status='pending'
+            )
             
             db.session.add(booking)
-            db.session.commit()
             
-            # Handle payment based on option
-            if payment_option == 'now':
+            # Handle payment
+            if booking.payment_option == 'now':
+                days = (booking.check_out - booking.check_in).days
+                amount = room.price * days
+                
                 try:
-                    # Create payment intent
                     intent = create_payment_intent(amount)
                     booking.payment_intent_id = intent.id
                     db.session.commit()
-                    
-                    # Redirect to payment page
                     return redirect(url_for('payment', booking_id=booking.id))
                 except Exception as e:
-                    app.logger.error(f"Payment error: {str(e)}")
-                    db.session.delete(booking)
-                    db.session.commit()
-                    flash('Error processing payment. Please try again.', 'error')
-                    return redirect(url_for('booking', room_id=room_id))
+                    db.session.rollback()
+                    raise e
             else:
-                # For pay later option
                 booking.status = 'confirmed'
                 db.session.commit()
                 
-                # Send confirmation email
                 try:
                     send_booking_confirmation(booking)
                 except Exception as e:
                     app.logger.error(f"Error sending confirmation email: {str(e)}")
                 
-                flash('Booking confirmed! Please complete the payment before check-in.', 'success')
+                flash('Booking confirmed! Please complete payment before check-in.', 'success')
                 return redirect(url_for('my_bookings'))
                 
-        except ValueError as e:
-            flash('Please enter valid dates', 'error')
-            return redirect(url_for('booking', room_id=room_id))
         except Exception as e:
             db.session.rollback()
             app.logger.error(f"Booking error: {str(e)}")
@@ -254,9 +200,11 @@ def cancel_booking(booking_id):
         db.session.commit()
         
         # Send cancellation notification
-        if send_booking_status_update(booking):
+        try:
+            send_booking_status_update(booking)
             flash('Booking cancelled successfully. Check your email for details.', 'success')
-        else:
+        except Exception as e:
+            app.logger.error(f"Error sending cancellation email: {str(e)}")
             flash('Booking cancelled but email notification failed.', 'warning')
             
         return redirect(url_for('my_bookings'))
@@ -267,6 +215,7 @@ def cancel_booking(booking_id):
         flash('Error cancelling booking. Please try again.', 'error')
         return redirect(url_for('my_bookings'))
 
+# Admin routes
 @app.route('/admin/dashboard')
 @login_required
 @admin_required
@@ -372,7 +321,6 @@ def admin_delete_room(room_id):
 @login_required
 @admin_required
 def admin_bookings():
-    # Get all bookings ordered by creation date
     bookings = Booking.query.order_by(Booking.created_at.desc()).all()
     return render_template('admin/bookings.html', bookings=bookings)
 
@@ -394,10 +342,11 @@ def admin_update_booking(booking_id):
             
         db.session.commit()
         
-        # Send email notification
-        if send_booking_status_update(booking):
+        try:
+            send_booking_status_update(booking)
             return jsonify({'success': True})
-        else:
+        except Exception as e:
+            app.logger.error(f"Error sending status update email: {str(e)}")
             return jsonify({'success': True, 'warning': 'Email notification failed'})
             
     except Exception as e:

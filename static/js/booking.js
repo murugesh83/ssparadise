@@ -1,7 +1,11 @@
 document.addEventListener('DOMContentLoaded', function() {
-    const bookingForm = document.querySelector('#bookingForm');
-    const checkInInput = document.querySelector('#check_in');
-    const checkOutInput = document.querySelector('#check_out');
+    // Get form elements with null checks
+    const bookingForm = document.getElementById('bookingForm');
+    const checkInInput = document.getElementById('check_in');
+    const checkOutInput = document.getElementById('check_out');
+    const guestsInput = document.getElementById('guests');
+    const roomIdInput = document.getElementById('room_id');
+    const submitButton = bookingForm?.querySelector('button[type="submit"]');
     
     if (bookingForm && checkInInput && checkOutInput) {
         // Set minimum dates
@@ -29,20 +33,19 @@ document.addEventListener('DOMContentLoaded', function() {
             checkRoomAvailability();
         });
         
-        checkOutInput.addEventListener('change', function() {
-            checkRoomAvailability();
-        });
+        checkOutInput.addEventListener('change', checkRoomAvailability);
         
         // Form submission handler
         bookingForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const roomId = document.querySelector('#room_id')?.value;
-            const checkIn = checkInInput.value;
-            const checkOut = checkOutInput.value;
-            const guestName = document.querySelector('#name')?.value;
-            const guestEmail = document.querySelector('#email')?.value;
-            const guests = document.querySelector('#guests')?.value;
+            // Get form values with null checks
+            const roomId = roomIdInput?.value;
+            const checkIn = checkInInput?.value;
+            const checkOut = checkOutInput?.value;
+            const guestName = document.getElementById('name')?.value;
+            const guestEmail = document.getElementById('email')?.value;
+            const guests = guestsInput?.value;
             const paymentOption = document.querySelector('input[name="payment_option"]:checked')?.value;
 
             // Validate form fields
@@ -52,116 +55,105 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             // Show loading state
-            const submitButton = bookingForm.querySelector('button[type="submit"]');
-            if (!submitButton) return;
+            if (submitButton) {
+                const originalButtonText = submitButton.innerHTML;
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
 
-            const originalButtonText = submitButton.innerHTML;
-            submitButton.disabled = true;
-            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+                try {
+                    // Check room availability before submitting
+                    const response = await fetch('/api/check-room-availability', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            room_id: roomId,
+                            check_in: checkIn,
+                            check_out: checkOut
+                        })
+                    });
 
-            try {
-                const response = await fetch('/api/check-room-availability', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        room_id: roomId,
-                        check_in: checkIn,
-                        check_out: checkOut
-                    })
-                });
+                    if (!response.ok) {
+                        throw new Error('Failed to check availability');
+                    }
 
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(data.error || 'Error checking availability');
-                }
-                
-                if (!data.success || !data.available_rooms.includes(parseInt(roomId))) {
-                    const roomData = data.rooms_count[roomId] || { available: 0, total: 0 };
-                    const errorMessage = `Sorry, only ${roomData.available} out of ${roomData.total} rooms are available for the selected dates.`;
-                    showAlert(errorMessage, 'warning');
+                    const data = await response.json();
+                    
+                    if (!data.success || !data.available_rooms.includes(parseInt(roomId))) {
+                        const roomData = data.rooms_count[roomId] || { available: 0, total: 0 };
+                        throw new Error(`Sorry, only ${roomData.available} out of ${roomData.total} rooms are available for the selected dates.`);
+                    }
+                    
+                    // If available, submit the form
+                    bookingForm.submit();
+                } catch (error) {
+                    console.error('Error:', error);
+                    showAlert(error.message || 'An error occurred. Please try again.', 'danger');
                     submitButton.disabled = false;
                     submitButton.innerHTML = originalButtonText;
-                    return;
                 }
-                
-                // If available, submit the form
-                bookingForm.submit();
-            } catch (error) {
-                console.error('Error:', error);
-                showAlert(error.message || 'An error occurred. Please try again.', 'danger');
-                submitButton.disabled = false;
-                submitButton.innerHTML = originalButtonText;
             }
         });
 
-        // Function to check room availability
-        async function checkRoomAvailability() {
-            const roomId = document.querySelector('#room_id')?.value;
-            if (!roomId || !checkInInput.value || !checkOutInput.value) return;
+        // Initial availability check
+        checkRoomAvailability();
+    }
 
-            try {
-                const response = await fetch('/api/check-room-availability', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        room_id: roomId,
-                        check_in: checkInInput.value,
-                        check_out: checkOutInput.value
-                    })
-                });
+    // Function to check room availability
+    async function checkRoomAvailability() {
+        if (!roomIdInput?.value || !checkInInput?.value || !checkOutInput?.value) return;
 
-                const data = await response.json();
-                
-                if (!response.ok || !data.success) {
-                    throw new Error(data.error || 'Error checking availability');
-                }
+        try {
+            const response = await fetch('/api/check-room-availability', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    room_id: roomIdInput.value,
+                    check_in: checkInInput.value,
+                    check_out: checkOutInput.value
+                })
+            });
 
-                const submitButton = bookingForm.querySelector('button[type="submit"]');
-                if (!submitButton) return;
+            if (!response.ok) {
+                throw new Error('Failed to check availability');
+            }
 
-                if (!data.available_rooms.includes(parseInt(roomId))) {
-                    const roomData = data.rooms_count[roomId] || { available: 0, total: 0 };
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Error checking availability');
+            }
+
+            if (submitButton) {
+                if (!data.available_rooms.includes(parseInt(roomIdInput.value))) {
+                    const roomData = data.rooms_count[roomIdInput.value] || { available: 0, total: 0 };
                     showAlert(`Sorry, only ${roomData.available} out of ${roomData.total} rooms are available for these dates.`, 'warning');
                     submitButton.disabled = true;
                 } else {
                     submitButton.disabled = false;
+                    // Remove any existing warning alerts
+                    document.querySelectorAll('.alert-warning').forEach(alert => alert.remove());
                 }
-            } catch (error) {
-                console.error('Error:', error);
-                showAlert(error.message || 'Error checking room availability', 'danger');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showAlert(error.message || 'Error checking room availability', 'danger');
+            if (submitButton) {
+                submitButton.disabled = true;
             }
         }
-
-        // Payment option selection handler
-        const paymentOptions = document.querySelectorAll('input[name="payment_option"]');
-        if (paymentOptions.length > 0) {
-            paymentOptions.forEach(option => {
-                option.addEventListener('change', function() {
-                    const submitButton = bookingForm.querySelector('button[type="submit"]');
-                    if (submitButton) {
-                        if (this.value === 'now') {
-                            submitButton.innerHTML = '<i class="bi bi-credit-card me-2"></i>Proceed to Payment';
-                        } else {
-                            submitButton.innerHTML = '<i class="bi bi-calendar-check me-2"></i>Confirm Booking';
-                        }
-                    }
-                });
-            });
-        }
-
-        // Initial availability check
-        checkRoomAvailability();
     }
 });
 
 // Helper function to show alerts
 function showAlert(message, type = 'warning') {
-    const form = document.querySelector('#bookingForm');
+    // Remove any existing alerts
+    document.querySelectorAll('.alert').forEach(alert => alert.remove());
+
+    const form = document.getElementById('bookingForm');
     if (!form) return;
 
     const alertDiv = document.createElement('div');

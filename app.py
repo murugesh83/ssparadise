@@ -8,7 +8,6 @@ from datetime import datetime
 from sqlalchemy import event, text
 from sqlalchemy.exc import OperationalError, DatabaseError
 from sqlalchemy.engine import Engine
-import time
 import logging
 
 # Configure logging
@@ -33,8 +32,9 @@ app.config["DEBUG"] = True
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     'pool_pre_ping': True,
     'pool_recycle': 300,
-    'pool_size': 10,
-    'max_overflow': 20,
+    'pool_timeout': 20,
+    'pool_size': 30,
+    'max_overflow': 10,
     'connect_args': {
         'sslmode': 'require',
         'connect_timeout': 10
@@ -125,18 +125,23 @@ def init_database():
     from models import User, Room, Booking, Review, Contact
     
     try:
-        # Ensure all existing sessions are closed
-        db.session.remove()
-        
-        # Create new session and tables
+        # Create tables in the application context
         with app.app_context():
+            # Ensure any existing transactions are cleaned up
+            db.session.remove()
+            
+            # Drop and recreate tables
+            db.drop_all()
             db.create_all()
+            
+            # Commit changes and log success
             db.session.commit()
             logger.info("Database initialized successfully")
             return True
             
     except Exception as e:
         logger.error(f"Database initialization error: {str(e)}")
+        # Ensure we rollback any failed transaction
         if db.session.is_active:
             db.session.rollback()
         return False
