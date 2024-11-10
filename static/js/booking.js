@@ -2,8 +2,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const bookingForm = document.querySelector('#bookingForm');
     const checkInInput = document.querySelector('#check_in');
     const checkOutInput = document.querySelector('#check_out');
-    const payNowOption = document.querySelector('#pay_now');
-    const payLaterOption = document.querySelector('#pay_later');
     
     if (bookingForm && checkInInput && checkOutInput) {
         // Set minimum dates
@@ -12,7 +10,9 @@ document.addEventListener('DOMContentLoaded', function() {
         tomorrow.setDate(tomorrow.getDate() + 1);
         
         checkInInput.min = today.toISOString().split('T')[0];
+        checkInInput.value = today.toISOString().split('T')[0];
         checkOutInput.min = tomorrow.toISOString().split('T')[0];
+        checkOutInput.value = tomorrow.toISOString().split('T')[0];
         
         // Update checkout min date when checkin changes
         checkInInput.addEventListener('change', function() {
@@ -24,6 +24,13 @@ document.addEventListener('DOMContentLoaded', function() {
             if (checkOutInput.value && new Date(checkOutInput.value) <= selectedDate) {
                 checkOutInput.value = nextDay.toISOString().split('T')[0];
             }
+            
+            // Check availability when dates change
+            checkRoomAvailability();
+        });
+        
+        checkOutInput.addEventListener('change', function() {
+            checkRoomAvailability();
         });
         
         // Form submission handler
@@ -72,7 +79,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 if (!data.success || !data.available_rooms.includes(parseInt(roomId))) {
-                    const errorMessage = data.error || 'Sorry, this room is not available for the selected dates.';
+                    const roomData = data.rooms_count[roomId] || { available: 0, total: 0 };
+                    const errorMessage = `Sorry, only ${roomData.available} out of ${roomData.total} rooms are available for the selected dates.`;
                     showAlert(errorMessage, 'warning');
                     submitButton.disabled = false;
                     submitButton.innerHTML = originalButtonText;
@@ -88,6 +96,46 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitButton.innerHTML = originalButtonText;
             }
         });
+
+        // Function to check room availability
+        async function checkRoomAvailability() {
+            const roomId = document.querySelector('#room_id')?.value;
+            if (!roomId || !checkInInput.value || !checkOutInput.value) return;
+
+            try {
+                const response = await fetch('/api/check-room-availability', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        room_id: roomId,
+                        check_in: checkInInput.value,
+                        check_out: checkOutInput.value
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Error checking availability');
+                }
+
+                const submitButton = bookingForm.querySelector('button[type="submit"]');
+                if (!submitButton) return;
+
+                if (!data.available_rooms.includes(parseInt(roomId))) {
+                    const roomData = data.rooms_count[roomId] || { available: 0, total: 0 };
+                    showAlert(`Sorry, only ${roomData.available} out of ${roomData.total} rooms are available for these dates.`, 'warning');
+                    submitButton.disabled = true;
+                } else {
+                    submitButton.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert(error.message || 'Error checking room availability', 'danger');
+            }
+        }
 
         // Payment option selection handler
         const paymentOptions = document.querySelectorAll('input[name="payment_option"]');
@@ -105,6 +153,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             });
         }
+
+        // Initial availability check
+        checkRoomAvailability();
     }
 });
 

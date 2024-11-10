@@ -62,7 +62,10 @@ def check_room_availability():
             available = room.total_rooms - existing_bookings
             if available > 0:
                 available_rooms.append(room.id)
-                rooms_count[room.id] = available
+                rooms_count[room.id] = {
+                    'available': available,
+                    'total': room.total_rooms
+                }
 
         return jsonify({
             'success': True,
@@ -310,8 +313,8 @@ def admin_add_room():
         room = Room()
         room.name = request.form.get('name')
         room.description = request.form.get('description')
-        room.price = float(request.form.get('price'))
-        room.capacity = int(request.form.get('capacity'))
+        room.price = float(request.form.get('price', 0))
+        room.capacity = int(request.form.get('capacity', 1))
         room.room_type = request.form.get('room_type')
         room.total_rooms = int(request.form.get('total_rooms', 1))
         room.image_url = request.form.get('image_url')
@@ -336,8 +339,8 @@ def admin_edit_room(room_id):
         try:
             room.name = request.form.get('name')
             room.description = request.form.get('description')
-            room.price = float(request.form.get('price'))
-            room.capacity = int(request.form.get('capacity'))
+            room.price = float(request.form.get('price', 0))
+            room.capacity = int(request.form.get('capacity', 1))
             room.room_type = request.form.get('room_type')
             room.total_rooms = int(request.form.get('total_rooms', 1))
             room.image_url = request.form.get('image_url')

@@ -47,7 +47,6 @@
             </thead>
             <tbody>
                 {% for room in rooms %}
-                {% if room.total_rooms > room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length %}
                 <tr class="room-item" data-room-id="{{ room.id }}" data-room-type="{{ room.room_type.lower() }}">
                     <td>
                         <h5>{{ room.name }}</h5>
@@ -64,7 +63,8 @@
                         </div>
                         <small class="text-danger rooms-left">
                             <i class="bi bi-exclamation-circle"></i>
-                            Only {{ room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length }} room{{ 's' if (room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length) != 1 else '' }} of this type left
+                            {% set available = room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length %}
+                            Only {{ available }} out of {{ room.total_rooms }} room{{ 's' if room.total_rooms != 1 else '' }} available
                         </small>
                     </td>
                     <td>
@@ -116,7 +116,8 @@
                     <td>
                         <div class="d-flex flex-column align-items-end">
                             <select class="form-select mb-2 room-count" style="width: 80px;">
-                                {% for i in range(room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length + 1) %}
+                                {% set available = room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length %}
+                                {% for i in range(available + 1) %}
                                 <option value="{{ i }}">{{ i }}</option>
                                 {% endfor %}
                             </select>
@@ -129,7 +130,6 @@
                         </div>
                     </td>
                 </tr>
-                {% endif %}
                 {% endfor %}
             </tbody>
         </table>
