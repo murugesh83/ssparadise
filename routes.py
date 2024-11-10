@@ -15,9 +15,27 @@ def check_room_availability():
     """API endpoint to check room availability for given dates"""
     try:
         data = request.get_json()
+        if not data or 'check_in' not in data or 'check_out' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Missing required date parameters'
+            }), 400
+
         check_in = datetime.strptime(data['check_in'], '%Y-%m-%d').date()
         check_out = datetime.strptime(data['check_out'], '%Y-%m-%d').date()
         room_id = data.get('room_id')  # Optional, if checking specific room
+
+        if check_in >= check_out:
+            return jsonify({
+                'success': False,
+                'error': 'Check-in date must be before check-out date'
+            }), 400
+
+        if check_in < datetime.now().date():
+            return jsonify({
+                'success': False,
+                'error': 'Check-in date cannot be in the past'
+            }), 400
 
         # Base query for available rooms
         query = Room.query.filter_by(available=True)
@@ -52,12 +70,43 @@ def check_room_availability():
             'rooms_count': rooms_count
         })
 
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': 'Invalid date format'
+        }), 400
     except Exception as e:
         app.logger.error(f"Error checking room availability: {str(e)}")
         return jsonify({
             'success': False,
             'error': 'Error checking room availability'
-        }), 400
+        }), 500
+
+@app.route('/admin/dashboard')
+@login_required
+@admin_required
+def admin_dashboard():
+    # Get statistics
+    stats = {
+        'total_rooms': Room.query.count(),
+        'active_bookings': Booking.query.filter_by(status='confirmed').count(),
+        'daily_revenue': db.session.query(func.sum(Room.price)).join(Booking).filter(
+            Booking.status == 'confirmed',
+            Booking.check_in <= datetime.now().date(),
+            Booking.check_out > datetime.now().date()
+        ).scalar() or 0,
+        'occupancy_rate': (Booking.query.filter_by(status='confirmed')
+                          .filter(Booking.check_in <= datetime.now().date())
+                          .filter(Booking.check_out > datetime.now().date())
+                          .count() / max(Room.query.count(), 1)) * 100
+    }
+    
+    # Get recent activity
+    recent_activity = Booking.query.order_by(Booking.created_at.desc()).limit(10).all()
+    
+    return render_template('admin/dashboard.html',
+                         stats=stats,
+                         recent_activity=recent_activity)
 
 @app.route('/booking/<int:room_id>', methods=['GET', 'POST'])
 @login_required
@@ -66,13 +115,34 @@ def booking(room_id):
     
     if request.method == 'POST':
         try:
-            # Get form data
+            # Get and validate form data
             check_in = datetime.strptime(request.form['check_in'], '%Y-%m-%d').date()
             check_out = datetime.strptime(request.form['check_out'], '%Y-%m-%d').date()
             guests = int(request.form['guests'])
-            guest_name = request.form['name']
-            guest_email = request.form['email']
+            guest_name = request.form['name'].strip()
+            guest_email = request.form['email'].strip()
             payment_option = request.form['payment_option']
+
+            # Validate dates
+            if check_in >= check_out:
+                flash('Check-in date must be before check-out date', 'error')
+                return redirect(url_for('booking', room_id=room_id))
+
+            if check_in < datetime.now().date():
+                flash('Check-in date cannot be in the past', 'error')
+                return redirect(url_for('booking', room_id=room_id))
+
+            # Validate guest count
+            if guests < 1 or guests > room.capacity:
+                flash(f'Number of guests must be between 1 and {room.capacity}', 'error')
+                return redirect(url_for('booking', room_id=room_id))
+
+            # Validate email
+            try:
+                validate_email(guest_email)
+            except EmailNotValidError:
+                flash('Please enter a valid email address', 'error')
+                return redirect(url_for('booking', room_id=room_id))
             
             # Verify room availability
             existing_bookings = Booking.query.filter(
@@ -137,6 +207,9 @@ def booking(room_id):
                 flash('Booking confirmed! Please complete the payment before check-in.', 'success')
                 return redirect(url_for('my_bookings'))
                 
+        except ValueError as e:
+            flash('Please enter valid dates', 'error')
+            return redirect(url_for('booking', room_id=room_id))
         except Exception as e:
             db.session.rollback()
             app.logger.error(f"Booking error: {str(e)}")
