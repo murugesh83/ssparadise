@@ -48,17 +48,17 @@ def admin_rooms():
 @admin_required
 def admin_add_room():
     try:
-        room = Room(
-            name=request.form.get('name'),
-            description=request.form.get('description'),
-            price=float(request.form.get('price')),
-            capacity=int(request.form.get('capacity')),
-            room_type=request.form.get('room_type'),
-            total_rooms=int(request.form.get('total_rooms', 1)),
-            image_url=request.form.get('image_url'),
-            available=bool(request.form.get('available')),
-            amenities=['Air Conditioning', 'Free Wi-Fi', 'LED TV', 'Attached Bathroom']
-        )
+        room = Room()
+        room.name = request.form.get('name')
+        room.description = request.form.get('description')
+        room.price = float(request.form.get('price', 0))
+        room.capacity = int(request.form.get('capacity', 1))
+        room.room_type = request.form.get('room_type')
+        room.total_rooms = int(request.form.get('total_rooms', 1))
+        room.image_url = request.form.get('image_url')
+        room.available = bool(request.form.get('available'))
+        room.amenities = ['Air Conditioning', 'Free Wi-Fi', 'LED TV', 'Attached Bathroom']
+        
         db.session.add(room)
         db.session.commit()
         flash('Room added successfully', 'success')
@@ -77,8 +77,8 @@ def admin_edit_room(room_id):
         try:
             room.name = request.form.get('name')
             room.description = request.form.get('description')
-            room.price = float(request.form.get('price'))
-            room.capacity = int(request.form.get('capacity'))
+            room.price = float(request.form.get('price', 0))
+            room.capacity = int(request.form.get('capacity', 1))
             room.room_type = request.form.get('room_type')
             room.total_rooms = int(request.form.get('total_rooms', 1))
             room.image_url = request.form.get('image_url')
@@ -112,6 +112,35 @@ def admin_delete_room(room_id):
 def admin_bookings():
     bookings = Booking.query.order_by(Booking.created_at.desc()).all()
     return render_template('admin/bookings.html', bookings=bookings)
+
+@app.route('/admin/bookings/<int:booking_id>/update', methods=['POST'])
+@login_required
+@admin_required
+def admin_update_booking(booking_id):
+    try:
+        booking = Booking.query.get_or_404(booking_id)
+        data = request.get_json()
+        new_status = data.get('status')
+        
+        if new_status not in ['confirmed', 'cancelled']:
+            return jsonify({'success': False, 'error': 'Invalid status'}), 400
+            
+        booking.status = new_status
+        if new_status == 'cancelled':
+            booking.cancelled_at = datetime.utcnow()
+            
+        db.session.commit()
+        
+        # Send email notification
+        if send_booking_status_update(booking):
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': True, 'warning': 'Email notification failed'})
+            
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating booking: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/booking/<int:room_id>', methods=['GET', 'POST'])
 @login_required
