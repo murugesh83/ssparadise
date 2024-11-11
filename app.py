@@ -39,8 +39,10 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     'connect_args': {
         'sslmode': 'require',
         'connect_timeout': 10,
-        'application_name': 'ss_paradise_app',
-        'options': '-c statement_timeout=60000'
+        'keepalives': 1,
+        'keepalives_idle': 30,
+        'keepalives_interval': 10,
+        'keepalives_count': 5
     }
 }
 
@@ -66,7 +68,11 @@ def load_user(user_id):
 # Add event listeners for database connection handling
 @event.listens_for(Engine, "connect")
 def connect(dbapi_connection, connection_record):
-    logger.info("New database connection established")
+    try:
+        # Clean up any pending transactions
+        dbapi_connection.rollback()
+    except:
+        pass
 
 @event.listens_for(Engine, "engine_connect")
 def ping_connection(connection, branch):
@@ -83,6 +89,7 @@ def ping_connection(connection, branch):
 @app.before_request
 def before_request():
     try:
+        # Clean up any pending transactions
         db.session.rollback()
     except:
         db.session.remove()
@@ -130,8 +137,13 @@ def init_database():
     
     with app.app_context():
         try:
+            # Clean up any existing sessions
             db.session.remove()
+            
+            # Drop all tables
             db.drop_all()
+            
+            # Create all tables
             db.create_all()
             
             # Create admin user
@@ -142,17 +154,17 @@ def init_database():
             )
             admin.set_password('admin123')
             
-            db.session.begin()
+            # Add admin user in a clean transaction
             db.session.add(admin)
             db.session.commit()
             
-            logger.info("Database initialized successfully")
+            logger.info("Database initialized successfully!")
             return True
-                
+            
         except Exception as e:
-            logger.error(f"Database initialization error: {str(e)}")
+            logger.error(f"Error initializing database: {str(e)}")
             db.session.rollback()
-            raise e
+            return False
         finally:
             db.session.remove()
 

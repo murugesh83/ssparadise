@@ -8,11 +8,18 @@ logger = logging.getLogger(__name__)
 
 def init_database():
     """Initialize database with proper transaction handling"""
-    with app.app_context():
-        try:
+    try:
+        with app.app_context():
+            # Clean up any existing sessions
             db.session.remove()
+            
+            # Drop all tables
             db.drop_all()
+            db.session.commit()
+            
+            # Create all tables
             db.create_all()
+            db.session.commit()
             
             # Create admin user
             admin = User(
@@ -22,6 +29,7 @@ def init_database():
             )
             admin.set_password('admin123')
             
+            # Add admin user in a clean transaction
             db.session.begin()
             db.session.add(admin)
             db.session.commit()
@@ -29,16 +37,17 @@ def init_database():
             logger.info("Database initialized successfully!")
             return True
             
-        except Exception as e:
-            logger.error(f"Error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error initializing database: {str(e)}")
+        if db.session.is_active:
             db.session.rollback()
-            raise e
-        finally:
-            db.session.remove()
+        return False
+    finally:
+        db.session.remove()
 
 if __name__ == "__main__":
     try:
-        db.session.remove()  # Clean up any existing sessions before starting
+        # Initialize database
         success = init_database()
         if not success:
             logger.error("Database initialization failed")
