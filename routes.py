@@ -172,8 +172,8 @@ def admin_update_booking(booking_id):
 @admin_required
 def admin_add_room():
     try:
-        # Start a fresh transaction
-        db.session.begin()
+        # Ensure clean session state
+        db.session.remove()
         
         room = Room(
             name=request.form.get('name'),
