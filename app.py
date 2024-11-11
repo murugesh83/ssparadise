@@ -9,7 +9,6 @@ from sqlalchemy import event, text
 from sqlalchemy.exc import OperationalError, DatabaseError
 from sqlalchemy.engine import Engine
 import logging
-import time
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -34,15 +33,11 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     'pool_pre_ping': True,
     'pool_recycle': 300,
     'pool_timeout': 20,
-    'pool_size': 30,
-    'max_overflow': 10,
+    'pool_size': 10,
+    'max_overflow': 5,
     'connect_args': {
-        'sslmode': 'require',
         'connect_timeout': 10,
-        'keepalives': 1,
-        'keepalives_idle': 30,
-        'keepalives_interval': 10,
-        'keepalives_count': 5
+        'application_name': 'SSParadise-Flask'
     }
 }
 
@@ -63,7 +58,11 @@ init_mail_app(app)
 @login_manager.user_loader
 def load_user(user_id):
     from models import User
-    return User.query.get(int(user_id))
+    try:
+        return User.query.get(int(user_id))
+    except Exception as e:
+        logger.error(f"Error loading user: {str(e)}")
+        return None
 
 # Add event listeners for database connection handling
 @event.listens_for(Engine, "connect")
@@ -71,8 +70,15 @@ def connect(dbapi_connection, connection_record):
     try:
         # Clean up any pending transactions
         dbapi_connection.rollback()
-    except:
-        pass
+        # Set session parameters
+        cursor = dbapi_connection.cursor()
+        cursor.execute("""
+            SET SESSION idle_in_transaction_session_timeout = '60s';
+            SET SESSION lock_timeout = '30s';
+        """)
+        cursor.close()
+    except Exception as e:
+        logger.error(f"Error in connect listener: {str(e)}")
 
 @event.listens_for(Engine, "engine_connect")
 def ping_connection(connection, branch):
@@ -80,9 +86,10 @@ def ping_connection(connection, branch):
         return
     
     try:
-        connection.execute(text("SELECT 1"))
+        connection.scalar(text("SELECT 1"))
     except Exception as e:
         logger.warning(f"Database connection check failed: {str(e)}")
+        connection.invalidate()
         raise
 
 # Updated before_request handler for transaction management
@@ -91,8 +98,9 @@ def before_request():
     try:
         if db.session.is_active:
             db.session.rollback()
-        db.session.remove()
-    except:
+    except Exception as e:
+        logger.error(f"Error in before_request: {str(e)}")
+    finally:
         db.session.remove()
 
 @app.teardown_request
@@ -100,9 +108,21 @@ def teardown_request(exception=None):
     if exception:
         try:
             db.session.rollback()
-        except:
-            pass
-    db.session.remove()
+        except Exception as e:
+            logger.error(f"Error in teardown_request rollback: {str(e)}")
+    try:
+        db.session.remove()
+    except Exception as e:
+        logger.error(f"Error in teardown_request remove: {str(e)}")
+
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    if exception:
+        logger.error(f"Error in app context teardown: {str(exception)}")
+    try:
+        db.session.remove()
+    except Exception as e:
+        logger.error(f"Error removing session in teardown: {str(e)}")
 
 # Basic routes
 @app.route('/')
@@ -177,7 +197,6 @@ with app.app_context():
     from auth_routes import *
     
     try:
-        # Remove database initialization from here since it's now handled by init_db.py
         logger.info("App initialization complete")
     except Exception as e:
         logger.error(f"Error during initialization: {str(e)}")
