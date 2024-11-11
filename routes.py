@@ -144,42 +144,13 @@ def admin_bookings():
     bookings = Booking.query.order_by(Booking.created_at.desc()).all()
     return render_template('admin/bookings.html', bookings=bookings)
 
-@app.route('/admin/bookings/<int:booking_id>/update', methods=['POST'])
-@login_required
-@admin_required
-def admin_update_booking(booking_id):
-    try:
-        booking = Booking.query.get_or_404(booking_id)
-        data = request.get_json()
-        new_status = data.get('status')
-        
-        if new_status not in ['confirmed', 'cancelled']:
-            return jsonify({'success': False, 'error': 'Invalid status'}), 400
-            
-        booking.status = new_status
-        if new_status == 'cancelled':
-            booking.cancelled_at = datetime.utcnow()
-            
-        db.session.commit()
-        
-        # Send email notification
-        if send_booking_status_update(booking):
-            return jsonify({'success': True})
-        else:
-            return jsonify({'success': True, 'warning': 'Email notification failed'})
-            
-    except Exception as e:
-        db.session.rollback()
-        app.logger.error(f"Error updating booking: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
 @app.route('/admin/rooms/add', methods=['POST'])
 @login_required
 @admin_required
 def admin_add_room():
     try:
-        # Start fresh transaction
-        db.session.begin()
+        # Ensure clean session state
+        db.session.remove()
         
         room = Room(
             name=request.form.get('name'),
@@ -197,14 +168,14 @@ def admin_add_room():
         db.session.commit()
         
         flash('Room added successfully', 'success')
-        return redirect(url_for('admin_rooms'))
         
     except Exception as e:
         db.session.rollback()
         flash('Error adding room: ' + str(e), 'error')
-        return redirect(url_for('admin_rooms'))
     finally:
         db.session.remove()
+        
+    return redirect(url_for('admin_rooms'))
 
 @app.route('/admin/rooms/<int:room_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -405,12 +376,12 @@ def cancel_booking(booking_id):
             flash('Booking cancelled successfully. Check your email for details.', 'success')
         except Exception as e:
             app.logger.error(f"Error sending cancellation email: {str(e)}")
-            flash('Booking cancelled but email notification failed.', 'warning')
+            flash('Booking cancelled, but email notification failed.', 'warning')
             
         return redirect(url_for('my_bookings'))
         
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error cancelling booking: {str(e)}")
-        flash('Error cancelling booking. Please try again.', 'error')
+        flash('Error cancelling booking', 'error')
         return redirect(url_for('my_bookings'))
