@@ -31,7 +31,7 @@
     </div>
 
     <div id="availabilityCounter" class="alert alert-info mb-4">
-        <i class="bi bi-info-circle me-2"></i>Select dates to check room availability
+        Showing all available rooms
     </div>
 
     <div class="table-responsive">
@@ -47,6 +47,7 @@
             </thead>
             <tbody>
                 {% for room in rooms %}
+                {% if room.total_rooms > room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length %}
                 <tr class="room-item" data-room-id="{{ room.id }}" data-room-type="{{ room.room_type.lower() }}">
                     <td>
                         <h5>{{ room.name }}</h5>
@@ -61,18 +62,15 @@
                             {% endfor %}
                             <span class="ms-1">{{ "%.1f"|format(room.average_rating) }} ({{ room.reviews|length }})</span>
                         </div>
-                        <div class="rooms-left text-danger">
+                        <small class="text-danger rooms-left">
                             <i class="bi bi-exclamation-circle"></i>
-                            {% set available = min(room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length, 6) %}
-                            {{ available }} out of {{ min(room.total_rooms, 6) }} rooms available
-                            <br>
-                            <small class="text-muted">Maximum 6 rooms per booking</small>
-                        </div>
+                            Only {{ room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length }} room{{ 's' if (room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length) != 1 else '' }} of this type left
+                        </small>
                     </td>
                     <td>
                         <div class="d-flex align-items-center">
                             <i class="bi bi-person me-1"></i>
-                            {{ room.capacity }} Guests per room
+                            {{ room.capacity }} Guests
                         </div>
                         <small class="text-muted">{{ room.description[:100] }}...</small>
                     </td>
@@ -105,12 +103,20 @@
                                 No prepayment needed
                             </li>
                         </ul>
+                        {% if room.amenities %}
+                        <div class="amenities mt-2">
+                            {% for amenity in room.amenities %}
+                            <span class="badge bg-secondary me-1">
+                                <i class="bi bi-check-circle me-1"></i>{{ amenity }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
                     </td>
                     <td>
                         <div class="d-flex flex-column align-items-end">
                             <select class="form-select mb-2 room-count" style="width: 80px;">
-                                {% set available = min(room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length, 6) %}
-                                {% for i in range(available + 1) %}
+                                {% for i in range(room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length + 1) %}
                                 <option value="{{ i }}">{{ i }}</option>
                                 {% endfor %}
                             </select>
@@ -123,6 +129,7 @@
                         </div>
                     </td>
                 </tr>
+                {% endif %}
                 {% endfor %}
             </tbody>
         </table>
@@ -132,5 +139,98 @@
 
 {% block scripts %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
-<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const roomFilterForm = document.getElementById('roomFilterForm');
+    const roomFilter = document.getElementById('roomFilter');
+    const checkIn = document.getElementById('checkIn');
+    const checkOut = document.getElementById('checkOut');
+    const availabilityCounter = document.getElementById('availabilityCounter');
+    const roomItems = document.querySelectorAll('.room-item');
+    
+    // Set minimum dates
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    checkIn.min = today.toISOString().split('T')[0];
+    checkIn.value = today.toISOString().split('T')[0];
+    checkOut.min = tomorrow.toISOString().split('T')[0];
+    checkOut.value = tomorrow.toISOString().split('T')[0];
+    
+    // Update checkout min date when checkin changes
+    checkIn.addEventListener('change', function() {
+        const selectedDate = new Date(this.value);
+        const nextDay = new Date(selectedDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        checkOut.min = nextDay.toISOString().split('T')[0];
+        
+        if (checkOut.value && new Date(checkOut.value) <= selectedDate) {
+            checkOut.value = nextDay.toISOString().split('T')[0];
+        }
+    });
+
+    roomFilterForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        try {
+            const response = await fetch('/api/check-room-availability', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    check_in: checkIn.value,
+                    check_out: checkOut.value
+                })
+            });
+
+            const data = await response.json();
+            
+            roomItems.forEach(item => {
+                const roomId = item.getAttribute('data-room-id');
+                
+                if (data.available_rooms.includes(parseInt(roomId))) {
+                    item.style.display = 'table-row';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+
+            const visibleRooms = document.querySelectorAll('.room-item[style="display: table-row"]').length;
+            availabilityCounter.textContent = `${visibleRooms} room${visibleRooms !== 1 ? 's' : ''} available for selected dates`;
+            
+        } catch (error) {
+            console.error('Error:', error);
+            availabilityCounter.textContent = 'Error checking room availability';
+        }
+    });
+
+    // Text-based filtering
+    roomFilter.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        let visibleCount = 0;
+
+        roomItems.forEach(item => {
+            if (item.style.display !== 'none') { // Only filter visible items (not filtered by date)
+                const roomName = item.querySelector('h5').textContent.toLowerCase();
+                const roomType = item.querySelector('.room-type').textContent.toLowerCase();
+                
+                if (roomName.includes(searchTerm) || roomType.includes(searchTerm)) {
+                    item.style.display = 'table-row';
+                    visibleCount++;
+                } else {
+                    item.style.display = 'none';
+                }
+            }
+        });
+
+        if (!this.value) {
+            visibleCount = document.querySelectorAll('.room-item[style="display: table-row"]').length;
+        }
+        
+        availabilityCounter.textContent = `${visibleCount} room${visibleCount !== 1 ? 's' : ''} available`;
+    });
+});
+</script>
 {% endblock %}

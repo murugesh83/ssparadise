@@ -5,32 +5,56 @@
 {% block content %}
 <div class="container mt-5">
     <div class="row">
-        <div class="col-md-7">
+        <div class="col-md-6">
             <h2>Book Your Stay</h2>
             <div class="card mb-4">
                 <div class="card-body">
                     <h5 class="card-title">{{ room.name }}</h5>
                     <p class="card-text">{{ room.description[:200] }}...</p>
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex justify-content-between">
                         <span class="h5">₹{{ "%.2f"|format(room.price) }}/night</span>
-                        <span class="badge bg-info">{{ room.capacity }} Guests per room</span>
-                    </div>
-                    <div class="mt-2">
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-2"></i>
-                            {% set available = min(room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length, 6) %}
-                            <strong>Currently Available:</strong> {{ available }} out of {{ min(room.total_rooms, 6) }} rooms
-                            <br>
-                            <small class="text-muted">Maximum 6 rooms can be booked per reservation</small>
-                        </div>
+                        <span class="badge bg-info">{{ room.capacity }} Guests</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Booking Form -->
+            <!-- Payment Options Information -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Payment Options</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6>Pay Now</h6>
+                                    <ul class="list-unstyled">
+                                        <li><i class="bi bi-check-circle text-success me-2"></i>Instant confirmation</li>
+                                        <li><i class="bi bi-check-circle text-success me-2"></i>Secure online payment</li>
+                                        <li><i class="bi bi-check-circle text-success me-2"></i>Better cancellation terms</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6>Pay Later</h6>
+                                    <ul class="list-unstyled">
+                                        <li><i class="bi bi-check-circle text-success me-2"></i>Book now, pay at check-in</li>
+                                        <li><i class="bi bi-check-circle text-success me-2"></i>No advance payment</li>
+                                        <li><i class="bi bi-exclamation-circle text-warning me-2"></i>Limited cancellation options</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
             <form id="bookingForm" method="POST" class="booking-form">
                 <input type="hidden" id="room_id" name="room_id" value="{{ room.id }}">
-                <input type="hidden" id="room_price" value="{{ room.price }}">
                 
                 <div class="mb-3">
                     <label for="name" class="form-label">Full Name</label>
@@ -56,27 +80,13 @@
                     </div>
                 </div>
 
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label for="num_rooms" class="form-label">Number of Rooms</label>
-                        <select class="form-select" id="num_rooms" name="num_rooms" required>
-                            {% set available = min(room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length, 6) %}
-                            {% for i in range(1, available + 1) %}
-                            <option value="{{ i }}">{{ i }}</option>
-                            {% endfor %}
-                        </select>
-                        <small class="text-muted">Maximum 6 rooms per booking</small>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label for="guests" class="form-label">Number of Guests</label>
-                        <select class="form-select" id="guests" name="guests" required>
-                            {% for i in range(1, (room.capacity * min(room.total_rooms, 6)) + 1) %}
-                            <option value="{{ i }}">{{ i }}</option>
-                            {% endfor %}
-                        </select>
-                        <small class="text-muted">Max {{ room.capacity }} guests per room</small>
-                    </div>
+                <div class="mb-3">
+                    <label for="guests" class="form-label">Number of Guests</label>
+                    <select class="form-select" id="guests" name="guests" required>
+                        {% for i in range(1, room.capacity + 1) %}
+                        <option value="{{ i }}">{{ i }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
 
                 <div class="mb-4">
@@ -94,77 +104,22 @@
                     </div>
                 </div>
 
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h6 class="card-title"><i class="bi bi-info-circle me-2"></i>Cancellation Policy</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>More than 7 days: 10% fee</li>
+                            <li class="mb-2"><i class="bi bi-check-circle text-warning me-2"></i>3-7 days: 30% fee</li>
+                            <li class="mb-2"><i class="bi bi-check-circle text-warning me-2"></i>48-72 hours: 50% fee</li>
+                            <li><i class="bi bi-x-circle text-danger me-2"></i>Less than 48 hours: No refund</li>
+                        </ul>
+                    </div>
+                </div>
+
                 <button type="submit" class="btn btn-primary w-100">
                     <i class="bi bi-calendar-check me-2"></i>Confirm Booking
                 </button>
             </form>
-        </div>
-
-        <!-- Booking Summary Panel -->
-        <div class="col-md-5">
-            <div class="card booking-summary sticky-top" style="top: 2rem;">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Booking Summary</h5>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <h6>Selected Room</h6>
-                        <p class="mb-1">{{ room.name }}</p>
-                        <small class="text-muted">{{ room.room_type }}</small>
-                    </div>
-
-                    <div class="mb-3">
-                        <h6>Stay Duration</h6>
-                        <p id="stayDuration">Select dates to see duration</p>
-                    </div>
-
-                    <div class="mb-3">
-                        <h6>Room Configuration</h6>
-                        <p class="mb-1" id="roomConfig">1 room, 1 guest</p>
-                    </div>
-
-                    <div class="price-breakdown">
-                        <h6>Price Breakdown</h6>
-                        <div id="priceDetails">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Room Rate (per night)</span>
-                                <span>₹{{ "%.2f"|format(room.price) }}</span>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2" id="numberOfNights">
-                                <span>Number of nights</span>
-                                <span>-</span>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2" id="numberOfRooms">
-                                <span>Number of rooms</span>
-                                <span>1</span>
-                            </div>
-                            <hr>
-                            <div class="d-flex justify-content-between fw-bold">
-                                <span>Total Amount</span>
-                                <span id="totalAmount">₹0.00</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-3">
-                        <div class="card">
-                            <div class="card-body">
-                                <h6 class="card-title"><i class="bi bi-info-circle me-2"></i>Booking Information</h6>
-                                <ul class="list-unstyled mb-0">
-                                    <li class="mb-2">
-                                        <i class="bi bi-check-circle text-success me-2"></i>
-                                        Maximum 6 rooms per booking
-                                    </li>
-                                    <li class="mb-2">
-                                        <i class="bi bi-check-circle text-success me-2"></i>
-                                        {{ room.capacity }} guests per room maximum
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>
