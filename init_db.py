@@ -12,10 +12,11 @@ def init_database():
             db.session.remove()
             db.engine.dispose()
             
-            # Drop and recreate tables
+            # Drop all tables
             db.drop_all()
             db.session.commit()
             
+            # Create all tables
             db.create_all()
             db.session.commit()
             
@@ -26,14 +27,16 @@ def init_database():
                 is_admin=True
             )
             admin.set_password('admin123')
+            
+            # Add admin user in a clean transaction
             db.session.add(admin)
             db.session.commit()
             
-            print("Database initialized successfully!")
+            logger.info("Database initialized successfully!")
             return True
             
         except Exception as e:
-            print(f"Error: {str(e)}")
+            logger.error(f"Error initializing database: {str(e)}")
             db.session.rollback()
             return False
         finally:
