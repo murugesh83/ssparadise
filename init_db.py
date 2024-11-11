@@ -10,13 +10,8 @@ def init_database():
     """Initialize database with proper transaction handling"""
     with app.app_context():
         try:
-            # Clean up any existing sessions
             db.session.remove()
-            
-            # Drop all tables
             db.drop_all()
-            
-            # Create tables
             db.create_all()
             
             # Create admin user
@@ -27,7 +22,7 @@ def init_database():
             )
             admin.set_password('admin123')
             
-            # Add admin user
+            db.session.begin()
             db.session.add(admin)
             db.session.commit()
             
@@ -37,11 +32,17 @@ def init_database():
         except Exception as e:
             logger.error(f"Error: {str(e)}")
             db.session.rollback()
-            return False
+            raise e
         finally:
             db.session.remove()
 
 if __name__ == "__main__":
-    success = init_database()
-    if not success:
-        logger.error("Database initialization failed")
+    try:
+        db.session.remove()  # Clean up any existing sessions before starting
+        success = init_database()
+        if not success:
+            logger.error("Database initialization failed")
+            exit(1)
+    except Exception as e:
+        logger.error(f"Database initialization failed: {str(e)}")
+        exit(1)

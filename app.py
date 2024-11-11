@@ -39,10 +39,8 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     'connect_args': {
         'sslmode': 'require',
         'connect_timeout': 10,
-        'keepalives': 1,
-        'keepalives_idle': 30,
-        'keepalives_interval': 10,
-        'keepalives_count': 5
+        'application_name': 'ss_paradise_app',
+        'options': '-c statement_timeout=60000'
     }
 }
 
@@ -74,20 +72,29 @@ def connect(dbapi_connection, connection_record):
 def ping_connection(connection, branch):
     if branch:
         return
+    
+    try:
+        connection.execute(text("SELECT 1"))
+    except Exception as e:
+        logger.warning(f"Database connection check failed: {str(e)}")
+        raise
 
-    max_retries = 3
-    retry_delay = 1
+# Transaction recovery mechanisms
+@app.before_request
+def before_request():
+    try:
+        db.session.rollback()
+    except:
+        db.session.remove()
 
-    for attempt in range(max_retries):
+@app.teardown_request
+def teardown_request(exception=None):
+    if exception:
         try:
-            connection.execute(text("SELECT 1"))
-            break
-        except Exception as e:
-            if attempt == max_retries - 1:
-                logger.error(f"Database connection check failed after {max_retries} attempts: {str(e)}")
-                raise
-            logger.warning(f"Database connection check attempt {attempt + 1} failed: {str(e)}")
-            time.sleep(retry_delay)
+            db.session.rollback()
+        except:
+            pass
+    db.session.remove()
 
 # Basic routes
 @app.route('/')
@@ -123,13 +130,8 @@ def init_database():
     
     with app.app_context():
         try:
-            # Clean up any existing sessions
             db.session.remove()
-            
-            # Drop all tables
             db.drop_all()
-            
-            # Create tables
             db.create_all()
             
             # Create admin user
@@ -140,7 +142,7 @@ def init_database():
             )
             admin.set_password('admin123')
             
-            # Add admin user
+            db.session.begin()
             db.session.add(admin)
             db.session.commit()
             
@@ -150,7 +152,7 @@ def init_database():
         except Exception as e:
             logger.error(f"Database initialization error: {str(e)}")
             db.session.rollback()
-            return False
+            raise e
         finally:
             db.session.remove()
 
