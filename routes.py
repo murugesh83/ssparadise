@@ -21,8 +21,15 @@ def check_room_availability():
                 'error': 'Missing required date parameters'
             }), 400
 
-        check_in = datetime.strptime(data['check_in'], '%Y-%m-%d').date()
-        check_out = datetime.strptime(data['check_out'], '%Y-%m-%d').date()
+        try:
+            check_in = datetime.strptime(data['check_in'], '%Y-%m-%d').date()
+            check_out = datetime.strptime(data['check_out'], '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid date format. Please use YYYY-MM-DD format.'
+            }), 400
+
         room_id = data.get('room_id')  # Optional, if checking specific room
 
         if check_in >= check_out:
@@ -223,24 +230,25 @@ def cancel_booking(booking_id):
     try:
         booking = Booking.query.get_or_404(booking_id)
         
-        # Verify booking belongs to user
         if booking.user_id != current_user.id:
             flash('Unauthorized access', 'error')
             return redirect(url_for('my_bookings'))
         
-        # Check if booking can be cancelled
+        if booking.status == 'cancelled':
+            flash('Booking is already cancelled', 'warning')
+            return redirect(url_for('my_bookings'))
+            
         if not booking.can_cancel:
-            flash('This booking cannot be cancelled', 'error')
+            flash('Cancellation period has expired', 'error')
             return redirect(url_for('my_bookings'))
         
         booking.status = 'cancelled'
         booking.cancelled_at = datetime.utcnow()
         booking.cancellation_reason = request.form.get('cancellation_reason')
         
-        # Process refund if payment was made
         if booking.payment_status == 'completed':
             try:
-                refund = process_refund(booking.payment_intent_id)
+                refund = process_refund(booking.payment_intent_id, booking.refund_amount_available)
                 if refund:
                     booking.refund_status = 'completed'
                     booking.refund_amount = booking.refund_amount_available
@@ -250,14 +258,17 @@ def cancel_booking(booking_id):
         
         db.session.commit()
         
-        # Send cancellation notification
-        if send_booking_status_update(booking):
-            flash('Booking cancelled successfully. Check your email for details.', 'success')
-        else:
+        try:
+            if send_booking_status_update(booking):
+                flash('Booking cancelled successfully. Check your email for details.', 'success')
+            else:
+                flash('Booking cancelled but email notification failed.', 'warning')
+        except Exception as e:
+            app.logger.error(f"Error sending cancellation email: {str(e)}")
             flash('Booking cancelled but email notification failed.', 'warning')
             
         return redirect(url_for('my_bookings'))
-        
+            
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error cancelling booking: {str(e)}")

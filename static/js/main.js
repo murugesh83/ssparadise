@@ -10,11 +10,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Room filtering and availability checking
-    const roomFilterForm = document.querySelector('#roomFilterForm');
-    const roomFilter = document.querySelector('#roomFilter');
-    const checkIn = document.querySelector('#checkIn');
-    const checkOut = document.querySelector('#checkOut');
-    const availabilityCounter = document.querySelector('#availabilityCounter');
+    const roomFilterForm = document.getElementById('roomFilterForm');
+    const roomFilter = document.getElementById('roomFilter');
+    const checkIn = document.getElementById('checkIn');
+    const checkOut = document.getElementById('checkOut');
+    const availabilityCounter = document.getElementById('availabilityCounter');
     
     // Initialize date pickers if they exist
     if (checkIn && checkOut) {
@@ -64,6 +64,8 @@ function initializeDatePickers(checkIn, checkOut) {
 
 // Initialize room filtering functionality
 function initializeRoomFiltering(form, filter, checkIn, checkOut, counter) {
+    if (!form) return;
+
     // Handle room filter form submission
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -149,8 +151,8 @@ function updateRoomAvailability(data, counter) {
     });
 
     if (counter) {
-        const checkInDate = new Date(document.querySelector('#checkIn').value).toLocaleDateString();
-        const checkOutDate = new Date(document.querySelector('#checkOut').value).toLocaleDateString();
+        const checkInDate = new Date(document.getElementById('checkIn').value).toLocaleDateString();
+        const checkOutDate = new Date(document.getElementById('checkOut').value).toLocaleDateString();
         counter.innerHTML = 
             `<i class="bi bi-calendar-check me-2"></i>` +
             `${totalRooms} room${totalRooms !== 1 ? 's' : ''} available between ` +
@@ -189,7 +191,7 @@ function filterRoomsBySearchTerm(searchTerm, counter) {
                 `${visibleCount} room${visibleCount !== 1 ? 's' : ''} match your search`;
         } else {
             // Trigger availability check to restore original counter
-            document.querySelector('#roomFilterForm')?.dispatchEvent(new Event('submit'));
+            document.getElementById('roomFilterForm')?.dispatchEvent(new Event('submit'));
         }
     }
 }
