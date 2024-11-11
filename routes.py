@@ -172,10 +172,9 @@ def admin_update_booking(booking_id):
 @admin_required
 def admin_add_room():
     try:
-        # Log the form data for debugging
-        app.logger.info(f"Adding new room with data: {request.form}")
+        # Start a fresh transaction
+        db.session.begin()
         
-        # Create room object
         room = Room(
             name=request.form.get('name'),
             description=request.form.get('description'),
@@ -188,22 +187,16 @@ def admin_add_room():
             amenities=['Air Conditioning', 'Free Wi-Fi', 'LED TV', 'Attached Bathroom']
         )
         
-        # Log the room object
-        app.logger.info(f"Created room object: {room.__dict__}")
-        
         db.session.add(room)
-        db.session.flush()  # Flush to get the ID
-        app.logger.info(f"Room added to session with ID: {room.id}")
-        
         db.session.commit()
-        app.logger.info("Room committed to database successfully")
         
         flash('Room added successfully', 'success')
         
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f"Error adding room: {str(e)}")
         flash('Error adding room: ' + str(e), 'error')
+    finally:
+        db.session.remove()
         
     return redirect(url_for('admin_rooms'))
 

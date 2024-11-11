@@ -30,9 +30,12 @@ def init_database():
             db.session.commit()
             
             print("Database initialized successfully!")
+            return True
+            
         except Exception as e:
             print(f"Error: {str(e)}")
             db.session.rollback()
+            return False
         finally:
             db.session.remove()
             db.engine.dispose()
