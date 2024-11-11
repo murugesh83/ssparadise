@@ -128,8 +128,14 @@ def admin_dashboard():
 @login_required
 @admin_required
 def admin_rooms():
-    rooms = Room.query.all()
-    return render_template('admin/rooms.html', rooms=rooms)
+    try:
+        # Force fresh query
+        db.session.remove()
+        rooms = Room.query.all()
+        return render_template('admin/rooms.html', rooms=rooms)
+    except Exception as e:
+        flash('Error loading rooms: ' + str(e), 'error')
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/bookings')
 @login_required
@@ -172,8 +178,8 @@ def admin_update_booking(booking_id):
 @admin_required
 def admin_add_room():
     try:
-        # Ensure clean session state
-        db.session.remove()
+        # Start fresh transaction
+        db.session.begin()
         
         room = Room(
             name=request.form.get('name'),
@@ -191,14 +197,14 @@ def admin_add_room():
         db.session.commit()
         
         flash('Room added successfully', 'success')
+        return redirect(url_for('admin_rooms'))
         
     except Exception as e:
         db.session.rollback()
         flash('Error adding room: ' + str(e), 'error')
+        return redirect(url_for('admin_rooms'))
     finally:
         db.session.remove()
-        
-    return redirect(url_for('admin_rooms'))
 
 @app.route('/admin/rooms/<int:room_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -256,8 +262,14 @@ def room_detail(room_id):
 @app.route('/rooms')
 def rooms():
     """Display all available rooms with filtering capability"""
-    rooms = Room.query.filter_by(available=True).all()
-    return render_template('rooms.html', rooms=rooms)
+    try:
+        db.session.remove()  # Ensure fresh data
+        rooms = Room.query.filter_by(available=True).all()
+        return render_template('rooms.html', rooms=rooms)
+    except Exception as e:
+        app.logger.error(f"Error loading rooms: {str(e)}")
+        flash('Error loading rooms', 'error')
+        return redirect(url_for('index'))
 
 @app.route('/booking/<int:room_id>', methods=['GET', 'POST'])
 @login_required
