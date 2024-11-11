@@ -89,57 +89,6 @@ def check_room_availability():
             'error': 'Error checking room availability'
         }), 500
 
-@app.route('/admin/bookings')
-@login_required
-@admin_required
-def admin_bookings():
-    bookings = Booking.query.order_by(Booking.created_at.desc()).all()
-    return render_template('admin/bookings.html', bookings=bookings)
-
-@app.route('/admin/bookings/<int:booking_id>/update', methods=['POST'])
-@login_required
-@admin_required
-def admin_update_booking(booking_id):
-    try:
-        booking = Booking.query.get_or_404(booking_id)
-        data = request.get_json()
-        new_status = data.get('status')
-        
-        if new_status not in ['confirmed', 'cancelled']:
-            return jsonify({'success': False, 'error': 'Invalid status'}), 400
-            
-        booking.status = new_status
-        if new_status == 'cancelled':
-            booking.cancelled_at = datetime.utcnow()
-            
-        db.session.commit()
-        
-        # Send email notification
-        if send_booking_status_update(booking):
-            return jsonify({'success': True})
-        else:
-            return jsonify({'success': True, 'warning': 'Email notification failed'})
-            
-    except Exception as e:
-        db.session.rollback()
-        app.logger.error(f"Error updating booking: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/room/<int:room_id>')
-def room_detail(room_id):
-    """Display detailed information about a specific room"""
-    room = Room.query.get_or_404(room_id)
-    reviews = Review.query.filter_by(room_id=room_id).order_by(Review.created_at.desc()).all()
-    can_review = False
-    if current_user.is_authenticated:
-        completed_bookings = Booking.query.filter_by(
-            user_id=current_user.id,
-            room_id=room_id,
-            status='confirmed'
-        ).filter(Booking.check_out < datetime.now().date()).all()
-        can_review = len(completed_bookings) > 0
-    return render_template('room_detail.html', room=room, reviews=reviews, can_review=can_review)
-
 @app.route('/admin/dashboard')
 @login_required
 @admin_required
@@ -178,11 +127,51 @@ def admin_rooms():
     rooms = Room.query.all()
     return render_template('admin/rooms.html', rooms=rooms)
 
+@app.route('/admin/bookings')
+@login_required
+@admin_required
+def admin_bookings():
+    bookings = Booking.query.order_by(Booking.created_at.desc()).all()
+    return render_template('admin/bookings.html', bookings=bookings)
+
+@app.route('/admin/bookings/<int:booking_id>/update', methods=['POST'])
+@login_required
+@admin_required
+def admin_update_booking(booking_id):
+    try:
+        booking = Booking.query.get_or_404(booking_id)
+        data = request.get_json()
+        new_status = data.get('status')
+        
+        if new_status not in ['confirmed', 'cancelled']:
+            return jsonify({'success': False, 'error': 'Invalid status'}), 400
+            
+        booking.status = new_status
+        if new_status == 'cancelled':
+            booking.cancelled_at = datetime.utcnow()
+            
+        db.session.commit()
+        
+        # Send email notification
+        if send_booking_status_update(booking):
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': True, 'warning': 'Email notification failed'})
+            
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating booking: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/admin/rooms/add', methods=['POST'])
 @login_required
 @admin_required
 def admin_add_room():
     try:
+        # Log the form data for debugging
+        app.logger.info(f"Adding new room with data: {request.form}")
+        
+        # Create room object
         room = Room(
             name=request.form.get('name'),
             description=request.form.get('description'),
@@ -194,13 +183,24 @@ def admin_add_room():
             available=bool(request.form.get('available')),
             amenities=['Air Conditioning', 'Free Wi-Fi', 'LED TV', 'Attached Bathroom']
         )
+        
+        # Log the room object
+        app.logger.info(f"Created room object: {room.__dict__}")
+        
         db.session.add(room)
+        db.session.flush()  # Flush to get the ID
+        app.logger.info(f"Room added to session with ID: {room.id}")
+        
         db.session.commit()
+        app.logger.info("Room committed to database successfully")
+        
         flash('Room added successfully', 'success')
+        
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error adding room: {str(e)}")
-        flash('Error adding room', 'error')
+        flash('Error adding room: ' + str(e), 'error')
+        
     return redirect(url_for('admin_rooms'))
 
 @app.route('/admin/rooms/<int:room_id>/edit', methods=['GET', 'POST'])
@@ -240,6 +240,21 @@ def admin_delete_room(room_id):
         db.session.rollback()
         app.logger.error(f"Error deleting room: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/room/<int:room_id>')
+def room_detail(room_id):
+    """Display detailed information about a specific room"""
+    room = Room.query.get_or_404(room_id)
+    reviews = Review.query.filter_by(room_id=room_id).order_by(Review.created_at.desc()).all()
+    can_review = False
+    if current_user.is_authenticated:
+        completed_bookings = Booking.query.filter_by(
+            user_id=current_user.id,
+            room_id=room_id,
+            status='confirmed'
+        ).filter(Booking.check_out < datetime.now().date()).all()
+        can_review = len(completed_bookings) > 0
+    return render_template('room_detail.html', room=room, reviews=reviews, can_review=can_review)
 
 @app.route('/rooms')
 def rooms():

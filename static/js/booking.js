@@ -16,8 +16,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const numberOfRoomsEl = document.getElementById('numberOfRooms');
     const totalAmountEl = document.getElementById('totalAmount');
     
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
     if (bookingForm && checkInInput && checkOutInput) {
-        // Set minimum dates
+        // Set minimum dates with improved validation
         const today = new Date();
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -27,15 +33,17 @@ document.addEventListener('DOMContentLoaded', function() {
         checkOutInput.min = tomorrow.toISOString().split('T')[0];
         checkOutInput.value = tomorrow.toISOString().split('T')[0];
         
-        // Update checkout min date when checkin changes
+        // Update checkout min date when checkin changes with improved UX
         checkInInput.addEventListener('change', function() {
             const selectedDate = new Date(this.value);
             const nextDay = new Date(selectedDate);
             nextDay.setDate(nextDay.getDate() + 1);
+            
             checkOutInput.min = nextDay.toISOString().split('T')[0];
             
             if (checkOutInput.value && new Date(checkOutInput.value) <= selectedDate) {
                 checkOutInput.value = nextDay.toISOString().split('T')[0];
+                showFeedback('Check-out date automatically adjusted', 'info');
             }
             
             updateBookingSummary();
@@ -44,20 +52,44 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Update summary when checkout date changes
         checkOutInput.addEventListener('change', function() {
+            if (new Date(this.value) <= new Date(checkInInput.value)) {
+                showFeedback('Check-out date must be after check-in date', 'warning');
+                const nextDay = new Date(checkInInput.value);
+                nextDay.setDate(nextDay.getDate() + 1);
+                this.value = nextDay.toISOString().split('T')[0];
+            }
             updateBookingSummary();
             checkRoomAvailability();
         });
         
-        // Update summary when number of rooms changes
+        // Update summary when number of rooms changes with improved validation
         numRoomsInput?.addEventListener('change', function() {
+            const maxRooms = parseInt(this.getAttribute('max') || 6);
+            const selectedRooms = parseInt(this.value);
+            
+            if (selectedRooms > maxRooms) {
+                showFeedback(`Maximum ${maxRooms} rooms allowed per booking`, 'warning');
+                this.value = maxRooms;
+            }
+            
             updateBookingSummary();
             updateMaxGuests();
         });
         
-        // Update summary when number of guests changes
-        guestsInput?.addEventListener('change', updateBookingSummary);
+        // Update summary when number of guests changes with validation
+        guestsInput?.addEventListener('change', function() {
+            const maxGuests = parseInt(this.getAttribute('max'));
+            const selectedGuests = parseInt(this.value);
+            
+            if (selectedGuests > maxGuests) {
+                showFeedback(`Maximum ${maxGuests} guests allowed`, 'warning');
+                this.value = maxGuests;
+            }
+            
+            updateBookingSummary();
+        });
         
-        // Form submission handler with validation
+        // Form submission handler with enhanced validation
         bookingForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -65,14 +97,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            // Show loading state
+            // Show loading state with improved UI feedback
             if (submitButton) {
                 const originalButtonText = submitButton.innerHTML;
                 submitButton.disabled = true;
-                submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
-
+                submitButton.innerHTML = `
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                    Processing your booking...
+                `;
+                
                 try {
-                    // Check final room availability before submitting
+                    // Final availability check before submission
                     const response = await fetch('/api/check-room-availability', {
                         method: 'POST',
                         headers: {
@@ -99,19 +134,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     bookingForm.submit();
                 } catch (error) {
                     console.error('Error:', error);
-                    showAlert(error.message || 'An error occurred. Please try again.', 'danger');
+                    showFeedback(error.message || 'An error occurred. Please try again.', 'danger');
                     submitButton.disabled = false;
                     submitButton.innerHTML = originalButtonText;
                 }
             }
         });
 
-        // Initialize booking summary
+        // Initialize booking summary and availability check
         updateBookingSummary();
         checkRoomAvailability();
     }
     
-    // Function to update booking summary
+    // Enhanced booking summary update function
     function updateBookingSummary() {
         if (!checkInInput?.value || !checkOutInput?.value) return;
         
@@ -122,83 +157,108 @@ document.addEventListener('DOMContentLoaded', function() {
         const guests = parseInt(guestsInput?.value || 1);
         const roomPrice = parseFloat(roomPriceInput?.value || 0);
         
-        // Update stay duration
+        // Update stay duration with improved formatting
         if (stayDurationEl) {
-            stayDurationEl.textContent = `${checkIn.toLocaleDateString()} - ${checkOut.toLocaleDateString()} (${nights} night${nights !== 1 ? 's' : ''})`;
+            stayDurationEl.innerHTML = `
+                <i class="bi bi-calendar-check me-2"></i>
+                ${checkIn.toLocaleDateString('en-US', { 
+                    weekday: 'short', 
+                    month: 'short', 
+                    day: 'numeric' 
+                })} - ${checkOut.toLocaleDateString('en-US', { 
+                    weekday: 'short', 
+                    month: 'short', 
+                    day: 'numeric' 
+                })}
+                <br>
+                <small class="text-muted">${nights} night${nights !== 1 ? 's' : ''}</small>
+            `;
         }
         
-        // Update room configuration
+        // Update room configuration with enhanced display
         if (roomConfigEl) {
-            roomConfigEl.textContent = `${rooms} room${rooms !== 1 ? 's' : ''}, ${guests} guest${guests !== 1 ? 's' : ''}`;
+            roomConfigEl.innerHTML = `
+                <i class="bi bi-people me-2"></i>
+                ${rooms} room${rooms !== 1 ? 's' : ''}, ${guests} guest${guests !== 1 ? 's' : ''}
+                <br>
+                <small class="text-muted">Max ${guestsInput?.getAttribute('max')} guests per room</small>
+            `;
         }
         
-        // Update number of nights
+        // Update price breakdown with animations
         if (numberOfNightsEl) {
             numberOfNightsEl.innerHTML = `
                 <span>Number of nights</span>
-                <span>${nights}</span>
+                <span class="badge bg-secondary">${nights}</span>
             `;
         }
         
-        // Update number of rooms
         if (numberOfRoomsEl) {
             numberOfRoomsEl.innerHTML = `
                 <span>Number of rooms</span>
-                <span>${rooms}</span>
+                <span class="badge bg-secondary">${rooms}</span>
             `;
         }
         
-        // Calculate and update total amount
+        // Calculate and update total amount with animation
         if (totalAmountEl) {
-            const total = roomPrice * nights * rooms;
-            totalAmountEl.textContent = `₹${total.toFixed(2)}`;
+            const oldTotal = parseFloat(totalAmountEl.getAttribute('data-total') || '0');
+            const newTotal = roomPrice * nights * rooms;
+            
+            totalAmountEl.setAttribute('data-total', newTotal);
+            animateNumber(oldTotal, newTotal, value => {
+                totalAmountEl.textContent = `₹${value.toFixed(2)}`;
+            });
         }
     }
     
-    // Function to update max guests based on number of rooms
+    // Enhanced max guests update function
     function updateMaxGuests() {
         if (!guestsInput || !numRoomsInput) return;
         
-        const maxGuestsPerRoom = parseInt(guestsInput.getAttribute('max') || guestsInput.options.length);
+        const maxGuestsPerRoom = parseInt(guestsInput.getAttribute('max') || 2);
         const rooms = parseInt(numRoomsInput.value);
         const totalMaxGuests = maxGuestsPerRoom * rooms;
         
-        // Update guests dropdown options
+        // Update guests dropdown with improved UX
         const currentGuests = parseInt(guestsInput.value);
         guestsInput.innerHTML = '';
         
         for (let i = 1; i <= totalMaxGuests; i++) {
             const option = document.createElement('option');
             option.value = i;
-            option.textContent = i;
+            option.textContent = `${i} guest${i !== 1 ? 's' : ''}`;
             guestsInput.appendChild(option);
         }
         
         // Try to keep current selection if possible
         if (currentGuests <= totalMaxGuests) {
             guestsInput.value = currentGuests;
+        } else {
+            guestsInput.value = totalMaxGuests;
+            showFeedback(`Number of guests adjusted to maximum capacity`, 'info');
         }
     }
     
-    // Function to validate form
+    // Enhanced form validation
     function validateForm() {
         const checkIn = new Date(checkInInput.value);
         const checkOut = new Date(checkOutInput.value);
         
         if (checkOut <= checkIn) {
-            showAlert('Check-out date must be after check-in date', 'warning');
+            showFeedback('Check-out date must be after check-in date', 'warning');
             return false;
         }
         
         if (checkIn < new Date().setHours(0,0,0,0)) {
-            showAlert('Check-in date cannot be in the past', 'warning');
+            showFeedback('Check-in date cannot be in the past', 'warning');
             return false;
         }
         
         return true;
     }
     
-    // Function to check room availability
+    // Enhanced room availability check
     async function checkRoomAvailability() {
         if (!roomIdInput?.value || !checkInInput?.value || !checkOutInput?.value) return;
         
@@ -227,7 +287,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const roomData = data.rooms_count[roomIdInput.value] || { available: 0, total: 0 };
             
-            // Update number of rooms dropdown
+            // Update room selection with improved UI feedback
             if (numRoomsInput) {
                 const currentRooms = parseInt(numRoomsInput.value);
                 numRoomsInput.innerHTML = '';
@@ -235,23 +295,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 for (let i = 1; i <= roomData.available; i++) {
                     const option = document.createElement('option');
                     option.value = i;
-                    option.textContent = i;
+                    option.textContent = `${i} room${i !== 1 ? 's' : ''}`;
                     numRoomsInput.appendChild(option);
                 }
                 
                 // Try to keep current selection if possible
                 if (currentRooms <= roomData.available) {
                     numRoomsInput.value = currentRooms;
+                } else {
+                    numRoomsInput.value = roomData.available;
+                    showFeedback(`Number of rooms adjusted due to availability`, 'info');
                 }
                 
                 // Update max guests after updating rooms
                 updateMaxGuests();
             }
             
+            // Update booking button state with enhanced feedback
             if (submitButton) {
                 if (!data.available_rooms.includes(parseInt(roomIdInput.value))) {
-                    showAlert(`Sorry, no rooms are available for these dates.`, 'warning');
                     submitButton.disabled = true;
+                    showFeedback(`Sorry, no rooms are available for these dates.`, 'warning');
                 } else {
                     submitButton.disabled = false;
                     // Remove any existing warning alerts
@@ -260,33 +324,59 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (error) {
             console.error('Error:', error);
-            showAlert(error.message || 'Error checking room availability', 'danger');
+            showFeedback(error.message || 'Error checking room availability', 'danger');
             if (submitButton) {
                 submitButton.disabled = true;
             }
         }
     }
+    
+    // Utility function to animate number changes
+    function animateNumber(start, end, callback) {
+        const duration = 500;
+        const startTime = performance.now();
+        
+        function update(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            const value = start + (end - start) * progress;
+            callback(value);
+            
+            if (progress < 1) {
+                requestAnimationFrame(update);
+            }
+        }
+        
+        requestAnimationFrame(update);
+    }
 });
 
-// Helper function to show alerts
-function showAlert(message, type = 'warning') {
+// Enhanced feedback display function
+function showFeedback(message, type = 'warning') {
     // Remove any existing alerts
-    document.querySelectorAll('.alert').forEach(alert => alert.remove());
+    document.querySelectorAll('.booking-feedback').forEach(alert => alert.remove());
 
     const form = document.getElementById('bookingForm');
     if (!form) return;
 
     const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show booking-feedback`;
     alertDiv.innerHTML = `
+        <i class="bi ${type === 'success' ? 'bi-check-circle' : 
+                      type === 'warning' ? 'bi-exclamation-triangle' : 
+                      type === 'info' ? 'bi-info-circle' : 
+                      'bi-x-circle'} me-2"></i>
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
     
     form.insertAdjacentElement('beforebegin', alertDiv);
     
-    // Auto dismiss after 5 seconds
-    setTimeout(() => {
-        alertDiv.remove();
-    }, 5000);
+    // Auto dismiss after 5 seconds for non-error messages
+    if (type !== 'danger') {
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
 }

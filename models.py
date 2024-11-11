@@ -5,11 +5,12 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
 class User(UserMixin, db.Model):
+    __tablename__ = 'users'  # Explicitly set table name
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    is_admin = db.Column(db.Boolean, default=False)  # New field for admin role
+    is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     bookings = db.relationship('Booking', backref='user', lazy=True)
     reviews = db.relationship('Review', backref='user', lazy=True)
@@ -21,6 +22,7 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
 class Room(db.Model):
+    __tablename__ = 'rooms'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=False)
@@ -30,7 +32,7 @@ class Room(db.Model):
     amenities = db.Column(db.JSON)
     image_url = db.Column(db.String(200))
     available = db.Column(db.Boolean, default=True)
-    total_rooms = db.Column(db.Integer, default=1)  # Added total_rooms field
+    total_rooms = db.Column(db.Integer, default=1)
     bookings = db.relationship('Booking', backref='room', lazy=True)
     reviews = db.relationship('Review', backref='room', lazy=True)
 
@@ -41,9 +43,10 @@ class Room(db.Model):
         return sum(review.rating for review in self.reviews) / len(self.reviews)
 
 class Booking(db.Model):
+    __tablename__ = 'bookings'
     id = db.Column(db.Integer, primary_key=True)
-    room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    room_id = db.Column(db.Integer, db.ForeignKey('rooms.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     guest_name = db.Column(db.String(100), nullable=False)
     guest_email = db.Column(db.String(120), nullable=False)
     check_in = db.Column(db.Date, nullable=False)
@@ -51,13 +54,11 @@ class Booking(db.Model):
     guests = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     status = db.Column(db.String(20), default='pending')
-    # Payment-related fields
     payment_status = db.Column(db.String(20), default='pending')
-    payment_option = db.Column(db.String(20), default='now')  # 'now' or 'later'
+    payment_option = db.Column(db.String(20), default='now')
     payment_intent_id = db.Column(db.String(100))
     amount_paid = db.Column(db.Float)
     payment_date = db.Column(db.DateTime)
-    # Cancellation-related fields
     cancelled_at = db.Column(db.DateTime)
     cancellation_reason = db.Column(db.Text)
     refund_status = db.Column(db.String(20))
@@ -69,8 +70,6 @@ class Booking(db.Model):
             return False
         if self.check_in <= datetime.now().date():
             return False
-            
-        # Check if within 48-hour window
         hours_until_checkin = (self.check_in - datetime.now().date()).days * 24
         return hours_until_checkin >= 48
 
@@ -78,17 +77,15 @@ class Booking(db.Model):
     def cancellation_fee(self):
         if not self.amount_paid:
             return 0
-            
         hours_until_checkin = (self.check_in - datetime.now().date()).days * 24
-        
         if hours_until_checkin >= 168:  # More than 7 days
-            return self.amount_paid * 0.1  # 10% cancellation fee
+            return self.amount_paid * 0.1
         elif hours_until_checkin >= 72:  # 3-7 days
-            return self.amount_paid * 0.3  # 30% cancellation fee
+            return self.amount_paid * 0.3
         elif hours_until_checkin >= 48:  # 48-72 hours
-            return self.amount_paid * 0.5  # 50% cancellation fee
+            return self.amount_paid * 0.5
         else:  # Less than 48 hours
-            return self.amount_paid  # No refund
+            return self.amount_paid
 
     @property
     def refund_amount_available(self):
@@ -97,6 +94,7 @@ class Booking(db.Model):
         return self.amount_paid - self.cancellation_fee
 
 class Contact(db.Model):
+    __tablename__ = 'contacts'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), nullable=False)
@@ -104,9 +102,10 @@ class Contact(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Review(db.Model):
+    __tablename__ = 'reviews'
     id = db.Column(db.Integer, primary_key=True)
-    room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    room_id = db.Column(db.Integer, db.ForeignKey('rooms.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
