@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Get form elements
+    // Get form elements with improved error handling
     const bookingForm = document.getElementById('bookingForm');
     const checkInInput = document.getElementById('check_in');
     const checkOutInput = document.getElementById('check_out');
@@ -15,15 +15,37 @@ document.addEventListener('DOMContentLoaded', function() {
     const numberOfNightsEl = document.getElementById('numberOfNights');
     const numberOfRoomsEl = document.getElementById('numberOfRooms');
     const totalAmountEl = document.getElementById('totalAmount');
+    
+    // Enhanced availability checking
+    let availabilityCheckTimeout;
+    const AVAILABILITY_CHECK_DELAY = 500; // ms
 
-    // Initialize tooltips
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    if (tooltipTriggerList.length > 0 && typeof bootstrap !== 'undefined') {
-        tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+    // Initialize tooltips with error handling
+    try {
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        if (tooltipTriggerList.length > 0 && typeof bootstrap !== 'undefined') {
+            tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+        }
+    } catch (e) {
+        console.warn('Bootstrap tooltips initialization failed:', e);
     }
     
     if (bookingForm && checkInInput && checkOutInput) {
-        // Set minimum dates with improved validation
+        // Enhanced date initialization with validation
+        initializeDates();
+        
+        // Add real-time availability check for all room selection changes
+        checkInInput.addEventListener('change', handleDateChange);
+        checkOutInput.addEventListener('change', handleDateChange);
+        numRoomsInput?.addEventListener('change', handleRoomCountChange);
+        guestsInput?.addEventListener('change', handleGuestCountChange);
+
+        // Enhanced form submission with real-time validation
+        bookingForm.addEventListener('submit', handleFormSubmit);
+    }
+
+    // Initialize dates with improved validation
+    function initializeDates() {
         const today = new Date();
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -33,9 +55,14 @@ document.addEventListener('DOMContentLoaded', function() {
         checkOutInput.min = tomorrow.toISOString().split('T')[0];
         checkOutInput.value = tomorrow.toISOString().split('T')[0];
         
-        // Real-time date validation and synchronization
-        checkInInput.addEventListener('change', function() {
-            const selectedDate = new Date(this.value);
+        updateBookingSummary();
+        checkRoomAvailability();
+    }
+
+    // Enhanced date change handler with debouncing
+    function handleDateChange(event) {
+        if (event.target.id === 'check_in') {
+            const selectedDate = new Date(event.target.value);
             const nextDay = new Date(selectedDate);
             nextDay.setDate(nextDay.getDate() + 1);
             
@@ -45,105 +72,198 @@ document.addEventListener('DOMContentLoaded', function() {
                 checkOutInput.value = nextDay.toISOString().split('T')[0];
                 showFeedback('Check-out date automatically adjusted', 'info');
             }
-            
-            updateBookingSummary();
-            checkRoomAvailability();
-        });
+        }
         
-        // Enhanced checkout date validation
-        checkOutInput.addEventListener('change', function() {
-            if (new Date(this.value) <= new Date(checkInInput.value)) {
-                showFeedback('Check-out date must be after check-in date', 'warning');
-                const nextDay = new Date(checkInInput.value);
-                nextDay.setDate(nextDay.getDate() + 1);
-                this.value = nextDay.toISOString().split('T')[0];
-            }
-            updateBookingSummary();
-            checkRoomAvailability();
-        });
-        
-        // Real-time room count synchronization
-        numRoomsInput?.addEventListener('change', function() {
-            const maxRooms = parseInt(this.getAttribute('max') || 6);
-            const selectedRooms = parseInt(this.value);
-            
-            if (selectedRooms > maxRooms) {
-                showFeedback(`Maximum ${maxRooms} rooms allowed per booking`, 'warning');
-                this.value = maxRooms;
-            }
-            
-            updateBookingSummary();
-            updateMaxGuests();
-        });
-        
-        // Enhanced guest count validation
-        guestsInput?.addEventListener('change', function() {
-            const maxGuests = parseInt(this.getAttribute('max'));
-            const selectedGuests = parseInt(this.value);
-            
-            if (selectedGuests > maxGuests) {
-                showFeedback(`Maximum ${maxGuests} guests allowed`, 'warning');
-                this.value = maxGuests;
-            }
-            
-            updateBookingSummary();
-        });
-        
-        // Enhanced form submission with real-time availability check
-        bookingForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            if (!validateForm()) {
-                return;
-            }
-            
-            // Show loading state
-            if (submitButton) {
-                const originalButtonText = submitButton.innerHTML;
-                submitButton.disabled = true;
-                submitButton.innerHTML = `
-                    <span class="spinner-border spinner-border-sm me-2"></span>
-                    Processing your booking...
-                `;
-                
-                try {
-                    // Final availability check before submission
-                    const response = await fetch('/api/check-room-availability', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            room_id: roomIdInput.value,
-                            check_in: checkInInput.value,
-                            check_out: checkOutInput.value
-                        })
-                    });
-
-                    if (!response.ok) {
-                        throw new Error('Failed to check availability');
-                    }
-
-                    const data = await response.json();
-                    
-                    if (!data.success || !data.available_rooms.includes(parseInt(roomIdInput.value))) {
-                        throw new Error('Sorry, this room is no longer available for the selected dates.');
-                    }
-                    
-                    // If available, submit the form
-                    this.submit();
-                } catch (error) {
-                    console.error('Error:', error);
-                    showFeedback(error.message || 'An error occurred. Please try again.', 'danger');
-                    submitButton.disabled = false;
-                    submitButton.innerHTML = originalButtonText;
-                }
-            }
-        });
-
-        // Initialize booking summary and availability check
         updateBookingSummary();
+        
+        // Debounce availability check
+        clearTimeout(availabilityCheckTimeout);
+        availabilityCheckTimeout = setTimeout(() => {
+            checkRoomAvailability();
+        }, AVAILABILITY_CHECK_DELAY);
+    }
+
+    // Enhanced room count change handler
+    function handleRoomCountChange() {
+        const maxRooms = parseInt(numRoomsInput.getAttribute('max') || 6);
+        const selectedRooms = parseInt(numRoomsInput.value);
+        
+        if (selectedRooms > maxRooms) {
+            showFeedback(`Maximum ${maxRooms} rooms allowed per booking`, 'warning');
+            numRoomsInput.value = maxRooms;
+        }
+        
+        updateBookingSummary();
+        updateMaxGuests();
         checkRoomAvailability();
+    }
+
+    // Enhanced guest count handler
+    function handleGuestCountChange() {
+        const maxGuests = parseInt(guestsInput.getAttribute('max'));
+        const selectedGuests = parseInt(guestsInput.value);
+        
+        if (selectedGuests > maxGuests) {
+            showFeedback(`Maximum ${maxGuests} guests allowed`, 'warning');
+            guestsInput.value = maxGuests;
+        }
+        
+        updateBookingSummary();
+    }
+
+    // Enhanced form submission handler with availability check
+    async function handleFormSubmit(e) {
+        e.preventDefault();
+        
+        if (!validateForm()) {
+            return;
+        }
+        
+        if (submitButton) {
+            const originalButtonText = submitButton.innerHTML;
+            submitButton.disabled = true;
+            submitButton.innerHTML = `
+                <span class="spinner-border spinner-border-sm me-2"></span>
+                Processing your booking...
+            `;
+            
+            try {
+                const response = await fetch('/api/check-room-availability', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        room_id: roomIdInput.value,
+                        check_in: checkInInput.value,
+                        check_out: checkOutInput.value
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to check availability');
+                }
+
+                const data = await response.json();
+                
+                if (!data.success || !data.available_rooms.includes(parseInt(roomIdInput.value))) {
+                    throw new Error('Sorry, this room is no longer available for the selected dates.');
+                }
+                
+                this.submit();
+            } catch (error) {
+                console.error('Error:', error);
+                showFeedback(error.message || 'An error occurred. Please try again.', 'danger');
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText;
+            }
+        }
+    }
+
+    // Enhanced validation with improved feedback
+    function validateForm() {
+        const checkIn = new Date(checkInInput.value);
+        const checkOut = new Date(checkOutInput.value);
+        
+        if (checkOut <= checkIn) {
+            showFeedback('Check-out date must be after check-in date', 'warning');
+            return false;
+        }
+        
+        if (checkIn < new Date().setHours(0,0,0,0)) {
+            showFeedback('Check-in date cannot be in the past', 'warning');
+            return false;
+        }
+        
+        return true;
+    }
+
+    // Enhanced room availability check with improved error handling
+    async function checkRoomAvailability() {
+        if (!roomIdInput?.value || !checkInInput?.value || !checkOutInput?.value) return;
+        
+        try {
+            const response = await fetch('/api/check-room-availability', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    room_id: roomIdInput.value,
+                    check_in: checkInInput.value,
+                    check_out: checkOutInput.value
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to check availability');
+            }
+
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Error checking availability');
+            }
+
+            updateAvailabilityUI(data);
+        } catch (error) {
+            console.error('Error:', error);
+            showFeedback(error.message || 'Error checking room availability', 'danger');
+            if (submitButton) {
+                submitButton.disabled = true;
+            }
+        }
+    }
+
+    // Enhanced UI update function with animation
+    function updateAvailabilityUI(data) {
+        const roomData = data.rooms_count[roomIdInput.value];
+        if (!roomData) return;
+
+        // Update room selection with improved feedback
+        if (numRoomsInput) {
+            const currentRooms = parseInt(numRoomsInput.value);
+            numRoomsInput.innerHTML = '';
+            
+            for (let i = 1; i <= roomData.available; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `${i} room${i !== 1 ? 's' : ''}`;
+                numRoomsInput.appendChild(option);
+            }
+            
+            if (currentRooms <= roomData.available) {
+                numRoomsInput.value = currentRooms;
+            } else {
+                numRoomsInput.value = roomData.available;
+                showFeedback(`Number of rooms adjusted to available capacity`, 'info');
+            }
+            
+            updateMaxGuests();
+        }
+
+        // Update booking button state
+        if (submitButton) {
+            if (!data.available_rooms.includes(parseInt(roomIdInput.value))) {
+                submitButton.disabled = true;
+                showFeedback(`Sorry, no rooms are available for these dates.`, 'warning');
+            } else {
+                submitButton.disabled = false;
+                document.querySelectorAll('.alert-warning').forEach(alert => alert.remove());
+            }
+        }
+
+        // Update availability display
+        const availabilityDisplay = document.querySelector('.room-availability');
+        if (availabilityDisplay) {
+            availabilityDisplay.innerHTML = `
+                <div class="alert ${roomData.available > 2 ? 'alert-success' : roomData.available > 0 ? 'alert-warning' : 'alert-danger'}">
+                    <i class="bi ${roomData.available > 2 ? 'bi-check-circle' : 'bi-exclamation-triangle'}"></i>
+                    ${roomData.available} out of ${roomData.total} rooms available
+                    ${roomData.available <= 2 && roomData.available > 0 ? '<br><small class="text-muted">Book soon, rooms are filling up!</small>' : ''}
+                </div>
+            `;
+        }
     }
     
     // Enhanced booking summary update function
@@ -237,97 +357,6 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             guestsInput.value = totalMaxGuests;
             showFeedback(`Number of guests adjusted to maximum capacity`, 'info');
-        }
-    }
-    
-    // Enhanced form validation
-    function validateForm() {
-        const checkIn = new Date(checkInInput.value);
-        const checkOut = new Date(checkOutInput.value);
-        
-        if (checkOut <= checkIn) {
-            showFeedback('Check-out date must be after check-in date', 'warning');
-            return false;
-        }
-        
-        if (checkIn < new Date().setHours(0,0,0,0)) {
-            showFeedback('Check-in date cannot be in the past', 'warning');
-            return false;
-        }
-        
-        return true;
-    }
-    
-    // Enhanced room availability check with real-time updates
-    async function checkRoomAvailability() {
-        if (!roomIdInput?.value || !checkInInput?.value || !checkOutInput?.value) return;
-        
-        try {
-            const response = await fetch('/api/check-room-availability', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    room_id: roomIdInput.value,
-                    check_in: checkInInput.value,
-                    check_out: checkOutInput.value
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to check availability');
-            }
-
-            const data = await response.json();
-            
-            if (!data.success) {
-                throw new Error(data.error || 'Error checking availability');
-            }
-
-            const roomData = data.rooms_count[roomIdInput.value] || { available: 0, total: 0 };
-            
-            // Update room selection with improved UI feedback
-            if (numRoomsInput) {
-                const currentRooms = parseInt(numRoomsInput.value);
-                numRoomsInput.innerHTML = '';
-                
-                for (let i = 1; i <= roomData.available; i++) {
-                    const option = document.createElement('option');
-                    option.value = i;
-                    option.textContent = `${i} room${i !== 1 ? 's' : ''}`;
-                    numRoomsInput.appendChild(option);
-                }
-                
-                // Try to keep current selection if possible
-                if (currentRooms <= roomData.available) {
-                    numRoomsInput.value = currentRooms;
-                } else {
-                    numRoomsInput.value = roomData.available;
-                    showFeedback(`Number of rooms adjusted due to availability`, 'info');
-                }
-                
-                // Update max guests after updating rooms
-                updateMaxGuests();
-            }
-            
-            // Update booking button state with enhanced feedback
-            if (submitButton) {
-                if (!data.available_rooms.includes(parseInt(roomIdInput.value))) {
-                    submitButton.disabled = true;
-                    showFeedback(`Sorry, no rooms are available for these dates.`, 'warning');
-                } else {
-                    submitButton.disabled = false;
-                    // Remove any existing warning alerts
-                    document.querySelectorAll('.alert-warning').forEach(alert => alert.remove());
-                }
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            showFeedback(error.message || 'Error checking room availability', 'danger');
-            if (submitButton) {
-                submitButton.disabled = true;
-            }
         }
     }
 });

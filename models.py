@@ -5,7 +5,7 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
 class User(UserMixin, db.Model):
-    __tablename__ = 'users'  # Explicitly set table name
+    __tablename__ = 'user'  # Updated to match database
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
@@ -22,7 +22,7 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
 class Room(db.Model):
-    __tablename__ = 'rooms'  # Updated to match SQLAlchemy's expected table name
+    __tablename__ = 'room'  # Updated to match database
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=False)
@@ -43,10 +43,10 @@ class Room(db.Model):
         return sum(review.rating for review in self.reviews) / len(self.reviews)
 
 class Booking(db.Model):
-    __tablename__ = 'bookings'
+    __tablename__ = 'booking'  # Updated to match database
     id = db.Column(db.Integer, primary_key=True)
-    room_id = db.Column(db.Integer, db.ForeignKey('rooms.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     guest_name = db.Column(db.String(100), nullable=False)
     guest_email = db.Column(db.String(120), nullable=False)
     check_in = db.Column(db.Date, nullable=False)
@@ -94,7 +94,7 @@ class Booking(db.Model):
         return self.amount_paid - self.cancellation_fee
 
 class Contact(db.Model):
-    __tablename__ = 'contacts'
+    __tablename__ = 'contact'  # Updated to match database
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), nullable=False)
@@ -102,10 +102,10 @@ class Contact(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Review(db.Model):
-    __tablename__ = 'reviews'
+    __tablename__ = 'review'  # Updated to match database
     id = db.Column(db.Integer, primary_key=True)
-    room_id = db.Column(db.Integer, db.ForeignKey('rooms.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

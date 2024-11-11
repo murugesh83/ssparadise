@@ -22,18 +22,27 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Initialize room filtering if form exists
-    if (roomFilterForm && checkIn && checkOut) {
-        initializeRoomFiltering(roomFilterForm, roomFilter, checkIn, checkOut, availabilityCounter);
+    if (roomFilterForm && roomFilter) {
+        roomFilter.addEventListener('input', function() {
+            filterRoomsBySearchTerm(this.value.toLowerCase(), availabilityCounter);
+        });
     }
 
     // Add real-time availability check for all room selection changes
     const roomCountSelects = document.querySelectorAll('.room-count');
-    roomCountSelects.forEach(select => {
-        select.addEventListener('change', function() {
-            const roomId = this.closest('.room-item').dataset.roomId;
-            checkRoomAvailabilityForRoom(roomId);
+    if (roomCountSelects) {
+        roomCountSelects.forEach(select => {
+            select.addEventListener('change', function() {
+                const roomItem = this.closest('.room-item');
+                if (roomItem) {
+                    const roomId = roomItem.dataset.roomId;
+                    if (roomId) {
+                        checkRoomAvailabilityForRoom(roomId);
+                    }
+                }
+            });
         });
-    });
+    }
 
     // Enhance navbar transparency on scroll
     const navbar = document.querySelector('.navbar');
@@ -46,6 +55,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Initialize room availability counter
+    updateAllRoomsAvailability();
 });
 
 // Initialize date pickers with validation and real-time updates
@@ -67,34 +79,37 @@ function initializeDatePickers(checkIn, checkOut) {
         
         if (checkOut.value && new Date(checkOut.value) <= selectedDate) {
             checkOut.value = nextDay.toISOString().split('T')[0];
+            showFeedback('Check-out date adjusted automatically', 'info');
         }
         
-        // Update availability for all visible rooms
         updateAllRoomsAvailability();
     });
     
-    checkOut.addEventListener('change', function() {
-        updateAllRoomsAvailability();
-    });
+    checkOut.addEventListener('change', updateAllRoomsAvailability);
 }
 
 // Update availability for all visible rooms
 function updateAllRoomsAvailability() {
     const visibleRooms = document.querySelectorAll('.room-item:not([style*="display: none"])');
-    visibleRooms.forEach(room => {
-        const roomId = room.dataset.roomId;
-        if (roomId) {
-            checkRoomAvailabilityForRoom(roomId);
-        }
-    });
+    if (visibleRooms.length > 0) {
+        visibleRooms.forEach(room => {
+            const roomId = room.dataset.roomId;
+            if (roomId) {
+                checkRoomAvailabilityForRoom(roomId);
+            }
+        });
+    }
 }
 
-// Check availability for a specific room
+// Enhanced room availability check with improved error handling
 async function checkRoomAvailabilityForRoom(roomId) {
     const checkIn = document.getElementById('checkIn');
     const checkOut = document.getElementById('checkOut');
     
-    if (!checkIn || !checkOut || !checkIn.value || !checkOut.value) return;
+    if (!checkIn?.value || !checkOut?.value) {
+        showFeedback('Please select check-in and check-out dates', 'warning');
+        return;
+    }
     
     try {
         const response = await fetch('/api/check-room-availability', {
@@ -126,7 +141,7 @@ async function checkRoomAvailabilityForRoom(roomId) {
     }
 }
 
-// Update room availability UI elements
+// Enhanced room availability UI update
 function updateRoomAvailabilityUI(roomId, data) {
     const roomItem = document.querySelector(`.room-item[data-room-id="${roomId}"]`);
     if (!roomItem) return;
@@ -141,21 +156,22 @@ function updateRoomAvailabilityUI(roomId, data) {
     const available = Math.min(roomData.available, 6);
     const total = Math.min(roomData.total, 6);
 
-    // Update availability indicator
+    // Update availability indicator with enhanced visual feedback
     if (availabilityIndicator) {
         availabilityIndicator.innerHTML = `
-            <i class="bi bi-exclamation-circle"></i>
+            <i class="bi bi-${available > 0 ? 'check-circle' : 'exclamation-circle'}"></i>
             ${available} out of ${total} rooms available
+            ${available <= 2 && available > 0 ? '<br><small class="text-warning">Limited availability!</small>' : ''}
             <br>
             <small class="text-muted">Maximum ${total} rooms per booking</small>`;
         
-        // Add visual feedback based on availability
-        availabilityIndicator.className = 'rooms-left ' + 
-            (available === 0 ? 'text-danger' : 
-             available <= 2 ? 'text-warning' : 'text-success');
+        availabilityIndicator.className = `rooms-left ${
+            available === 0 ? 'text-danger' : 
+            available <= 2 ? 'text-warning' : 'text-success'
+        }`;
     }
 
-    // Update room selection dropdown
+    // Update room selection dropdown with animation
     if (roomCountSelect) {
         const currentValue = parseInt(roomCountSelect.value) || 0;
         roomCountSelect.innerHTML = '';
@@ -163,24 +179,23 @@ function updateRoomAvailabilityUI(roomId, data) {
         for (let i = 0; i <= available; i++) {
             const option = document.createElement('option');
             option.value = i;
-            option.textContent = i;
+            option.textContent = `${i} room${i !== 1 ? 's' : ''}`;
             roomCountSelect.appendChild(option);
         }
 
-        // Try to maintain previous selection if possible
         if (currentValue <= available) {
             roomCountSelect.value = currentValue;
         }
     }
 
-    // Update booking button state
+    // Update booking button state with tooltip
     if (bookButton) {
         bookButton.disabled = available === 0;
-        bookButton.title = available === 0 ? 'No rooms available for selected dates' : '';
+        bookButton.title = available === 0 ? 'No rooms available for selected dates' : 'Book now';
     }
 }
 
-// Show availability error message
+// Enhanced error display
 function showAvailabilityError(roomId, message) {
     const roomItem = document.querySelector(`.room-item[data-room-id="${roomId}"]`);
     if (!roomItem) return;
@@ -194,9 +209,9 @@ function showAvailabilityError(roomId, message) {
     }
 }
 
-// Filter rooms by search term with improved feedback
+// Enhanced room filtering with improved feedback
 function filterRoomsBySearchTerm(searchTerm, counter) {
-    const visibleRooms = document.querySelectorAll('.room-item:not([style*="display: none"])');
+    const visibleRooms = document.querySelectorAll('.room-item');
     let visibleCount = 0;
 
     visibleRooms.forEach(room => {
@@ -204,27 +219,64 @@ function filterRoomsBySearchTerm(searchTerm, counter) {
         const roomType = room.querySelector('.room-type')?.textContent.toLowerCase() || '';
         const description = room.querySelector('small')?.textContent.toLowerCase() || '';
         
-        if (roomName.includes(searchTerm) || 
-            roomType.includes(searchTerm) || 
-            description.includes(searchTerm)) {
-            room.style.display = '';
-            visibleCount++;
-        } else {
-            room.style.display = 'none';
-        }
+        const isVisible = roomName.includes(searchTerm) || 
+                         roomType.includes(searchTerm) || 
+                         description.includes(searchTerm);
+        
+        room.style.display = isVisible ? '' : 'none';
+        if (isVisible) visibleCount++;
     });
 
     if (counter) {
-        counter.innerHTML = `<div class="alert ${visibleCount > 0 ? 'alert-info' : 'alert-warning'}">
-            <i class="bi ${visibleCount > 0 ? 'bi-search' : 'bi-exclamation-triangle'} me-2"></i>
-            ${visibleCount > 0 ? 
-                `${visibleCount} room${visibleCount !== 1 ? 's' : ''} match your search` : 
-                'No rooms match your search criteria'}
-        </div>`;
+        counter.innerHTML = `
+            <div class="alert ${visibleCount > 0 ? 'alert-info' : 'alert-warning'} fade show">
+                <i class="bi ${visibleCount > 0 ? 'bi-search' : 'bi-exclamation-triangle'} me-2"></i>
+                ${visibleCount > 0 ? 
+                    `Found ${visibleCount} room${visibleCount !== 1 ? 's' : ''} matching your search` : 
+                    'No rooms match your search criteria'}
+            </div>`;
     }
 
     // Update availability for visible rooms
     if (visibleCount > 0) {
         updateAllRoomsAvailability();
+    }
+}
+
+// Enhanced feedback display with auto-dismiss
+function showFeedback(message, type = 'info') {
+    const feedbackContainer = document.getElementById('feedbackContainer') || 
+                            document.createElement('div');
+    
+    if (!document.getElementById('feedbackContainer')) {
+        feedbackContainer.id = 'feedbackContainer';
+        feedbackContainer.style.position = 'fixed';
+        feedbackContainer.style.top = '20px';
+        feedbackContainer.style.right = '20px';
+        feedbackContainer.style.zIndex = '1050';
+        document.body.appendChild(feedbackContainer);
+    }
+
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        <i class="bi ${
+            type === 'success' ? 'bi-check-circle' : 
+            type === 'warning' ? 'bi-exclamation-triangle' : 
+            type === 'info' ? 'bi-info-circle' : 
+            'bi-x-circle'
+        } me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    feedbackContainer.appendChild(alertDiv);
+
+    // Auto dismiss non-error alerts
+    if (type !== 'danger') {
+        setTimeout(() => {
+            alertDiv.classList.remove('show');
+            setTimeout(() => alertDiv.remove(), 150);
+        }, 5000);
     }
 }

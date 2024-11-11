@@ -12,11 +12,10 @@ def init_database():
             db.session.remove()
             db.engine.dispose()
             
-            # Drop all tables
+            # Drop and recreate tables
             db.drop_all()
             db.session.commit()
             
-            # Create all tables
             db.create_all()
             db.session.commit()
             
@@ -31,7 +30,6 @@ def init_database():
             db.session.commit()
             
             print("Database initialized successfully!")
-            
         except Exception as e:
             print(f"Error: {str(e)}")
             db.session.rollback()

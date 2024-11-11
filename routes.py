@@ -8,11 +8,11 @@ from payment import create_payment_intent, confirm_payment, process_refund
 from utils import admin_required
 from email_utils import send_booking_confirmation, send_booking_status_update
 import stripe
-from sqlalchemy import func, and_, not_
+from sqlalchemy import func, and_, not_, text
 
 @app.route('/api/check-room-availability', methods=['POST'])
 def check_room_availability():
-    """API endpoint to check room availability for given dates"""
+    """API endpoint to check room availability for given dates with enhanced synchronization"""
     try:
         data = request.get_json()
         if not data or 'check_in' not in data or 'check_out' not in data:
@@ -37,45 +37,49 @@ def check_room_availability():
                 'error': 'Check-in date cannot be in the past'
             }), 400
 
-        # Base query for available rooms
-        query = Room.query.filter_by(available=True)
-        
-        # If room_id is provided, check only that room
-        if room_id:
-            query = query.filter(Room.id == room_id)
+        # Use transaction to ensure consistent read
+        with db.session.begin():
+            # Lock the rooms table for consistent read
+            if room_id:
+                rooms = Room.query.filter_by(id=room_id, available=True)\
+                    .with_for_update().all()
+            else:
+                rooms = Room.query.filter_by(available=True)\
+                    .with_for_update().all()
 
-        # Get all rooms that match the criteria
-        rooms = query.all()
-        available_rooms = []
-        rooms_count = {}
+            available_rooms = []
+            rooms_count = {}
 
-        for room in rooms:
-            # Count existing bookings for these dates
-            existing_bookings = Booking.query.filter(
-                Booking.room_id == room.id,
-                Booking.status == 'confirmed',
-                Booking.check_in < check_out,
-                Booking.check_out > check_in
-            ).count()
+            for room in rooms:
+                # Count existing bookings with row-level locking
+                existing_bookings = Booking.query\
+                    .filter(
+                        Booking.room_id == room.id,
+                        Booking.status == 'confirmed',
+                        Booking.check_in < check_out,
+                        Booking.check_out > check_in
+                    )\
+                    .with_for_update()\
+                    .count()
 
-            # Calculate available rooms, capped at 6
-            total_rooms = min(room.total_rooms, 6)  # Ensure total rooms never exceeds 6
-            available = min(total_rooms - existing_bookings, 6)  # Cap available rooms at 6
-            
-            if available > 0:
-                available_rooms.append(room.id)
-                rooms_count[room.id] = {
-                    'available': available,
-                    'total': total_rooms,
-                    'room_type': room.room_type,
-                    'capacity': room.capacity
-                }
+                # Calculate available rooms, capped at 6
+                total_rooms = min(room.total_rooms, 6)  # Ensure total rooms never exceeds 6
+                available = min(total_rooms - existing_bookings, 6)  # Cap available rooms at 6
+                
+                if available > 0:
+                    available_rooms.append(room.id)
+                    rooms_count[room.id] = {
+                        'available': available,
+                        'total': total_rooms,
+                        'room_type': room.room_type,
+                        'capacity': room.capacity
+                    }
 
-        return jsonify({
-            'success': True,
-            'available_rooms': available_rooms,
-            'rooms_count': rooms_count
-        })
+            return jsonify({
+                'success': True,
+                'available_rooms': available_rooms,
+                'rooms_count': rooms_count
+            })
 
     except ValueError as e:
         return jsonify({
@@ -269,46 +273,80 @@ def booking(room_id):
     
     if request.method == 'POST':
         try:
-            # Create booking
-            booking = Booking(
-                room_id=room_id,
-                user_id=current_user.id,
-                guest_name=request.form['name'].strip(),
-                guest_email=request.form['email'].strip(),
-                check_in=datetime.strptime(request.form['check_in'], '%Y-%m-%d').date(),
-                check_out=datetime.strptime(request.form['check_out'], '%Y-%m-%d').date(),
-                guests=int(request.form['guests']),
-                payment_option=request.form['payment_option'],
-                status='pending'
-            )
-            
-            db.session.add(booking)
-            
-            # Handle payment
-            if booking.payment_option == 'now':
-                days = (booking.check_out - booking.check_in).days
-                amount = room.price * days * int(request.form['num_rooms'])
+            # Start transaction with row-level locking
+            with db.session.begin():
+                # Lock the room for booking
+                room = Room.query.filter_by(id=room_id)\
+                    .with_for_update()\
+                    .first()
+
+                if not room:
+                    flash('Room not found', 'error')
+                    return redirect(url_for('rooms'))
+
+                # Create booking with enhanced validation
+                check_in = datetime.strptime(request.form['check_in'], '%Y-%m-%d').date()
+                check_out = datetime.strptime(request.form['check_out'], '%Y-%m-%d').date()
+                num_rooms = int(request.form['num_rooms'])
+
+                # Verify room availability again with lock
+                existing_bookings = Booking.query\
+                    .filter(
+                        Booking.room_id == room_id,
+                        Booking.status == 'confirmed',
+                        Booking.check_in < check_out,
+                        Booking.check_out > check_in
+                    )\
+                    .with_for_update()\
+                    .count()
+
+                available_rooms = min(room.total_rooms - existing_bookings, 6)
+                if available_rooms < num_rooms:
+                    flash('Sorry, the requested number of rooms is no longer available', 'error')
+                    return redirect(url_for('booking', room_id=room_id))
+
+                booking = Booking(
+                    room_id=room_id,
+                    user_id=current_user.id,
+                    guest_name=request.form['name'].strip(),
+                    guest_email=request.form['email'].strip(),
+                    check_in=check_in,
+                    check_out=check_out,
+                    guests=int(request.form['guests']),
+                    payment_option=request.form['payment_option'],
+                    status='pending'
+                )
                 
-                try:
-                    intent = create_payment_intent(amount)
-                    booking.payment_intent_id = intent.id
+                db.session.add(booking)
+                
+                # Handle payment with enhanced error handling
+                if booking.payment_option == 'now':
+                    days = (booking.check_out - booking.check_in).days
+                    amount = room.price * days * num_rooms
+                    
+                    try:
+                        intent = create_payment_intent(amount)
+                        booking.payment_intent_id = intent.id
+                        booking.amount_paid = amount
+                        db.session.commit()
+                        return redirect(url_for('payment', booking_id=booking.id))
+                    except Exception as e:
+                        db.session.rollback()
+                        app.logger.error(f"Payment error: {str(e)}")
+                        flash('Error processing payment. Please try again.', 'error')
+                        return redirect(url_for('booking', room_id=room_id))
+                else:
+                    booking.status = 'confirmed'
                     db.session.commit()
-                    return redirect(url_for('payment', booking_id=booking.id))
-                except Exception as e:
-                    db.session.rollback()
-                    raise e
-            else:
-                booking.status = 'confirmed'
-                db.session.commit()
-                
-                try:
-                    send_booking_confirmation(booking)
-                except Exception as e:
-                    app.logger.error(f"Error sending confirmation email: {str(e)}")
-                
-                flash('Booking confirmed! Please complete payment before check-in.', 'success')
-                return redirect(url_for('my_bookings'))
-                
+                    
+                    try:
+                        send_booking_confirmation(booking)
+                    except Exception as e:
+                        app.logger.error(f"Error sending confirmation email: {str(e)}")
+                    
+                    flash('Booking confirmed! Please complete payment before check-in.', 'success')
+                    return redirect(url_for('my_bookings'))
+                    
         except Exception as e:
             db.session.rollback()
             app.logger.error(f"Booking error: {str(e)}")
