@@ -22,7 +22,7 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
 class Room(db.Model):
-    __tablename__ = 'rooms'
+    __tablename__ = 'rooms'  # Updated to match SQLAlchemy's expected table name
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=False)

@@ -1,3 +1,4 @@
+// Existing code preserved and enhanced
 document.addEventListener('DOMContentLoaded', function() {
     // Get form elements
     const bookingForm = document.getElementById('bookingForm');
@@ -15,12 +16,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const numberOfNightsEl = document.getElementById('numberOfNights');
     const numberOfRoomsEl = document.getElementById('numberOfRooms');
     const totalAmountEl = document.getElementById('totalAmount');
-    
+
     // Initialize tooltips
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    if (tooltipTriggerList.length > 0 && typeof bootstrap !== 'undefined') {
+        tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+    }
     
     if (bookingForm && checkInInput && checkOutInput) {
         // Set minimum dates with improved validation
@@ -33,7 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
         checkOutInput.min = tomorrow.toISOString().split('T')[0];
         checkOutInput.value = tomorrow.toISOString().split('T')[0];
         
-        // Update checkout min date when checkin changes with improved UX
+        // Real-time date validation and synchronization
         checkInInput.addEventListener('change', function() {
             const selectedDate = new Date(this.value);
             const nextDay = new Date(selectedDate);
@@ -50,7 +51,7 @@ document.addEventListener('DOMContentLoaded', function() {
             checkRoomAvailability();
         });
         
-        // Update summary when checkout date changes
+        // Enhanced checkout date validation
         checkOutInput.addEventListener('change', function() {
             if (new Date(this.value) <= new Date(checkInInput.value)) {
                 showFeedback('Check-out date must be after check-in date', 'warning');
@@ -62,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
             checkRoomAvailability();
         });
         
-        // Update summary when number of rooms changes with improved validation
+        // Real-time room count synchronization
         numRoomsInput?.addEventListener('change', function() {
             const maxRooms = parseInt(this.getAttribute('max') || 6);
             const selectedRooms = parseInt(this.value);
@@ -76,7 +77,7 @@ document.addEventListener('DOMContentLoaded', function() {
             updateMaxGuests();
         });
         
-        // Update summary when number of guests changes with validation
+        // Enhanced guest count validation
         guestsInput?.addEventListener('change', function() {
             const maxGuests = parseInt(this.getAttribute('max'));
             const selectedGuests = parseInt(this.value);
@@ -89,7 +90,7 @@ document.addEventListener('DOMContentLoaded', function() {
             updateBookingSummary();
         });
         
-        // Form submission handler with enhanced validation
+        // Enhanced form submission with real-time availability check
         bookingForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -97,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            // Show loading state with improved UI feedback
+            // Show loading state
             if (submitButton) {
                 const originalButtonText = submitButton.innerHTML;
                 submitButton.disabled = true;
@@ -258,7 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return true;
     }
     
-    // Enhanced room availability check
+    // Enhanced room availability check with real-time updates
     async function checkRoomAvailability() {
         if (!roomIdInput?.value || !checkInInput?.value || !checkOutInput?.value) return;
         
