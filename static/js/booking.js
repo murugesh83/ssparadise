@@ -1,4 +1,3 @@
-// Existing code preserved and enhanced
 document.addEventListener('DOMContentLoaded', function() {
     // Get form elements
     const bookingForm = document.getElementById('bookingForm');
@@ -132,7 +131,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     // If available, submit the form
-                    bookingForm.submit();
+                    this.submit();
                 } catch (error) {
                     console.error('Error:', error);
                     showFeedback(error.message || 'An error occurred. Please try again.', 'danger');
@@ -217,7 +216,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateMaxGuests() {
         if (!guestsInput || !numRoomsInput) return;
         
-        const maxGuestsPerRoom = parseInt(guestsInput.getAttribute('max') || 2);
+        const maxGuestsPerRoom = parseInt(guestsInput.getAttribute('data-max-per-room') || 2);
         const rooms = parseInt(numRoomsInput.value);
         const totalMaxGuests = maxGuestsPerRoom * rooms;
         
@@ -331,26 +330,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }
-    
-    // Utility function to animate number changes
-    function animateNumber(start, end, callback) {
-        const duration = 500;
-        const startTime = performance.now();
-        
-        function update(currentTime) {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            
-            const value = start + (end - start) * progress;
-            callback(value);
-            
-            if (progress < 1) {
-                requestAnimationFrame(update);
-            }
-        }
-        
-        requestAnimationFrame(update);
-    }
 });
 
 // Enhanced feedback display function
@@ -380,4 +359,24 @@ function showFeedback(message, type = 'warning') {
             alertDiv.remove();
         }, 5000);
     }
+}
+
+// Utility function to animate number changes
+function animateNumber(start, end, callback) {
+    const duration = 500;
+    const startTime = performance.now();
+    
+    function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        const value = start + (end - start) * progress;
+        callback(value);
+        
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        }
+    }
+    
+    requestAnimationFrame(update);
 }
