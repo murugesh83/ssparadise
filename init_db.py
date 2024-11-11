@@ -10,23 +10,24 @@ def init_database():
     """Initialize database with proper transaction handling"""
     with app.app_context():
         try:
-            # Clean up any existing sessions and transactions
+            # Clean up any existing sessions
             db.session.remove()
             
-            # Drop and recreate tables
+            # Drop existing tables
             db.drop_all()
-            db.session.commit()
             
+            # Create new tables
             db.create_all()
-            db.session.commit()
             
-            # Create admin user in a clean transaction
+            # Create admin user
             admin = User(
                 email='admin@ssparadise.com',
                 name='Admin',
                 is_admin=True
             )
             admin.set_password('admin123')
+            
+            # Add admin in a fresh transaction
             db.session.add(admin)
             db.session.commit()
             
@@ -35,7 +36,8 @@ def init_database():
             
         except Exception as e:
             logger.error(f"Error initializing database: {str(e)}")
-            db.session.rollback()
+            if db.session.is_active:
+                db.session.rollback()
             return False
         finally:
             db.session.remove()

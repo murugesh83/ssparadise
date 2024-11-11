@@ -33,12 +33,8 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     'pool_pre_ping': True,
     'pool_recycle': 300,
     'pool_timeout': 20,
-    'pool_size': 10,
-    'max_overflow': 5,
-    'connect_args': {
-        'connect_timeout': 10,
-        'application_name': 'SSParadise-Flask'
-    }
+    'pool_size': 30,
+    'max_overflow': 10,
 }
 
 # Stripe Configuration
@@ -189,17 +185,10 @@ def init_database():
         finally:
             db.session.remove()
 
-# Initialize database and import routes
-with app.app_context():
-    # Import routes after app initialization to avoid circular imports
-    from routes import *
-    from oauth_routes import *
-    from auth_routes import *
-    
-    try:
-        logger.info("App initialization complete")
-    except Exception as e:
-        logger.error(f"Error during initialization: {str(e)}")
+# Initialize routes after app initialization to avoid circular imports
+from routes import *
+from oauth_routes import *
+from auth_routes import *
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
