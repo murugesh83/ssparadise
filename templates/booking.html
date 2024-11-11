@@ -89,6 +89,15 @@
                     </select>
                 </div>
 
+                <div class="mb-3">
+                    <label for="room_quantity" class="form-label">Number of Rooms</label>
+                    <select class="form-select" id="room_quantity" name="room_quantity" required>
+                        {% for i in range(1, room.total_rooms - room.bookings|selectattr('status', 'equalto', 'confirmed')|list|length + 1) %}
+                        <option value="{{ i }}">{{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
                 <div class="mb-4">
                     <label class="form-label">Payment Option</label>
                     <div class="btn-group w-100" role="group">

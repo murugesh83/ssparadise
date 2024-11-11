@@ -49,6 +49,7 @@ class Booking(db.Model):
     check_in = db.Column(db.Date, nullable=False)
     check_out = db.Column(db.Date, nullable=False)
     guests = db.Column(db.Integer, nullable=False)
+    room_quantity = db.Column(db.Integer, default=1)  # Added room_quantity field
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     status = db.Column(db.String(20), default='pending')
     # Payment-related fields

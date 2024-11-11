@@ -57,16 +57,16 @@ def check_room_availability():
         rooms_count = {}
 
         for room in rooms:
-            # Count existing bookings for these dates
-            existing_bookings = Booking.query.filter(
+            # Count existing bookings for these dates considering room_quantity
+            booked_rooms = db.session.query(func.sum(Booking.room_quantity)).filter(
                 Booking.room_id == room.id,
                 Booking.status == 'confirmed',
                 Booking.check_in < check_out,
                 Booking.check_out > check_in
-            ).count()
+            ).scalar() or 0
 
             # Calculate available rooms
-            available = room.total_rooms - existing_bookings
+            available = room.total_rooms - booked_rooms
             if available > 0:
                 available_rooms.append(room.id)
                 rooms_count[room.id] = available
@@ -120,6 +120,7 @@ def booking(room_id):
             check_in = datetime.strptime(request.form['check_in'], '%Y-%m-%d').date()
             check_out = datetime.strptime(request.form['check_out'], '%Y-%m-%d').date()
             guests = int(request.form['guests'])
+            room_quantity = int(request.form['room_quantity'])
             guest_name = request.form['name'].strip()
             guest_email = request.form['email'].strip()
             payment_option = request.form['payment_option']
@@ -145,21 +146,21 @@ def booking(room_id):
                 flash('Please enter a valid email address', 'error')
                 return redirect(url_for('booking', room_id=room_id))
             
-            # Verify room availability
+            # Verify room availability for the requested quantity
             existing_bookings = Booking.query.filter(
                 Booking.room_id == room_id,
                 Booking.status == 'confirmed',
                 Booking.check_in < check_out,
                 Booking.check_out > check_in
-            ).count()
+            ).with_entities(func.sum(Booking.room_quantity)).scalar() or 0
             
-            if existing_bookings >= room.total_rooms:
-                flash('Sorry, this room is not available for the selected dates.', 'error')
+            if existing_bookings + room_quantity > room.total_rooms:
+                flash('Not enough rooms available for the selected dates.', 'error')
                 return redirect(url_for('booking', room_id=room_id))
             
-            # Calculate total amount
+            # Calculate total amount based on room quantity
             days = (check_out - check_in).days
-            amount = room.price * days
+            amount = room.price * days * room_quantity
             
             # Create booking
             booking = Booking()
@@ -170,6 +171,7 @@ def booking(room_id):
             booking.check_in = check_in
             booking.check_out = check_out
             booking.guests = guests
+            booking.room_quantity = room_quantity
             booking.payment_option = payment_option
             booking.status = 'pending'
             booking.payment_status = 'pending'
@@ -180,7 +182,7 @@ def booking(room_id):
             # Handle payment based on option
             if payment_option == 'now':
                 try:
-                    # Create payment intent
+                    # Create payment intent with updated amount
                     intent = create_payment_intent(amount)
                     booking.payment_intent_id = intent.id
                     db.session.commit()
