@@ -13,11 +13,14 @@ def init_database():
             db.session.remove()
             db.engine.dispose()
             
-            # Drop and recreate tables
+            # Drop and recreate tables in a single transaction
             db.drop_all()
-            db.create_all()
+            db.session.commit()
             
-            # Create admin user with proper transaction handling
+            db.create_all()
+            db.session.commit()
+            
+            # Create admin user
             admin = User(
                 email='admin@ssparadise.com',
                 name='Admin',
