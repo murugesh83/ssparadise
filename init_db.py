@@ -1,16 +1,22 @@
 from app import app, db
 from models import User, Room, Booking, Review, Contact
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def init_database():
+    """Initialize database with proper transaction handling"""
     with app.app_context():
         try:
-            # Ensure clean state
+            # Clean up any existing sessions
             db.session.remove()
             
             # Drop all tables
             db.drop_all()
             
-            # Create all tables
+            # Create tables
             db.create_all()
             
             # Create admin user
@@ -21,21 +27,21 @@ def init_database():
             )
             admin.set_password('admin123')
             
-            # Add and commit in a transaction
-            db.session.begin()
+            # Add admin user
             db.session.add(admin)
             db.session.commit()
             
-            print("Database initialized successfully!")
+            logger.info("Database initialized successfully!")
             return True
             
         except Exception as e:
-            print(f"Error initializing database: {str(e)}")
+            logger.error(f"Error: {str(e)}")
             db.session.rollback()
             return False
-            
         finally:
             db.session.remove()
 
 if __name__ == "__main__":
-    init_database()
+    success = init_database()
+    if not success:
+        logger.error("Database initialization failed")

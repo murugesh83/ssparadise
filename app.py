@@ -38,7 +38,11 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     'max_overflow': 10,
     'connect_args': {
         'sslmode': 'require',
-        'connect_timeout': 10
+        'connect_timeout': 10,
+        'keepalives': 1,
+        'keepalives_idle': 30,
+        'keepalives_interval': 10,
+        'keepalives_count': 5
     }
 }
 
@@ -71,11 +75,19 @@ def ping_connection(connection, branch):
     if branch:
         return
 
-    try:
-        connection.execute(text("SELECT 1"))
-    except Exception as e:
-        logger.warning(f"Database connection check failed: {str(e)}")
-        raise
+    max_retries = 3
+    retry_delay = 1
+
+    for attempt in range(max_retries):
+        try:
+            connection.execute(text("SELECT 1"))
+            break
+        except Exception as e:
+            if attempt == max_retries - 1:
+                logger.error(f"Database connection check failed after {max_retries} attempts: {str(e)}")
+                raise
+            logger.warning(f"Database connection check attempt {attempt + 1} failed: {str(e)}")
+            time.sleep(retry_delay)
 
 # Basic routes
 @app.route('/')
@@ -109,38 +121,38 @@ def init_database():
     """Initialize database tables with proper transaction management"""
     from models import User, Room, Booking, Review, Contact
     
-    try:
-        # Clean up any existing transactions
-        db.session.remove()
-        
-        # Create tables
-        db.create_all()
-        
-        # Check if admin exists
-        admin = User.query.filter_by(email='admin@ssparadise.com').first()
-        if not admin:
+    with app.app_context():
+        try:
+            # Clean up any existing sessions
+            db.session.remove()
+            
+            # Drop all tables
+            db.drop_all()
+            
+            # Create tables
+            db.create_all()
+            
+            # Create admin user
             admin = User(
                 email='admin@ssparadise.com',
                 name='Admin',
                 is_admin=True
             )
             admin.set_password('admin123')
+            
+            # Add admin user
             db.session.add(admin)
             db.session.commit()
-            logger.info("Admin user created successfully")
-        
-        logger.info("Database initialized successfully")
-        return True
             
-    except Exception as e:
-        logger.error(f"Database initialization error: {str(e)}")
-        try:
+            logger.info("Database initialized successfully")
+            return True
+                
+        except Exception as e:
+            logger.error(f"Database initialization error: {str(e)}")
             db.session.rollback()
-        except:
-            pass
-        return False
-    finally:
-        db.session.remove()
+            return False
+        finally:
+            db.session.remove()
 
 # Initialize database and import routes
 with app.app_context():
