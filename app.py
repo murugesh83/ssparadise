@@ -85,12 +85,13 @@ def ping_connection(connection, branch):
         logger.warning(f"Database connection check failed: {str(e)}")
         raise
 
-# Transaction recovery mechanisms
+# Updated before_request handler for transaction management
 @app.before_request
 def before_request():
     try:
-        # Clean up any pending transactions
-        db.session.rollback()
+        if db.session.is_active:
+            db.session.rollback()
+        db.session.remove()
     except:
         db.session.remove()
 
@@ -176,9 +177,8 @@ with app.app_context():
     from auth_routes import *
     
     try:
-        success = init_database()
-        if not success:
-            logger.error("Failed to initialize database")
+        # Remove database initialization from here since it's now handled by init_db.py
+        logger.info("App initialization complete")
     except Exception as e:
         logger.error(f"Error during initialization: {str(e)}")
 
