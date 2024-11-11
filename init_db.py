@@ -1,6 +1,7 @@
 from app import app, db
 from models import User
 import logging
+from sqlalchemy import text
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -8,27 +9,21 @@ logger = logging.getLogger(__name__)
 def init_database():
     with app.app_context():
         try:
-            # Clean up existing sessions
+            # Clean up any existing connections
             db.session.remove()
             db.engine.dispose()
             
-            # Drop all tables
+            # Drop and recreate tables
             db.drop_all()
-            db.session.commit()
-            
-            # Create all tables
             db.create_all()
-            db.session.commit()
             
-            # Create admin user with correct credentials
-            admin = User(
-                email='admin@ssparadise.com',
-                name='Admin',
-                is_admin=True
-            )
+            # Create admin user in a clean transaction
+            admin = User()
+            admin.email = 'admin@ssparadise.com'
+            admin.name = 'Admin'
+            admin.is_admin = True
             admin.set_password('admin123')
             
-            # Add admin user in a clean transaction
             db.session.add(admin)
             db.session.commit()
             
@@ -37,7 +32,10 @@ def init_database():
             
         except Exception as e:
             logger.error(f"Error initializing database: {str(e)}")
-            db.session.rollback()
+            try:
+                db.session.rollback()
+            except:
+                pass
             return False
         finally:
             db.session.remove()
