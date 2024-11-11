@@ -4,17 +4,16 @@ from models import User, Room, Booking, Review, Contact
 def init_database():
     with app.app_context():
         try:
-            # Ensure all existing transactions are cleaned up
-            db.session.close()
+            # Ensure clean state
             db.session.remove()
             
             # Drop all tables
             db.drop_all()
             
-            # Create tables
+            # Create all tables
             db.create_all()
             
-            # Create admin user if not exists
+            # Create admin user
             admin = User(
                 email='admin@ssparadise.com',
                 name='Admin',
@@ -22,7 +21,8 @@ def init_database():
             )
             admin.set_password('admin123')
             
-            # Add admin user in a new transaction
+            # Add and commit in a transaction
+            db.session.begin()
             db.session.add(admin)
             db.session.commit()
             
@@ -31,10 +31,7 @@ def init_database():
             
         except Exception as e:
             print(f"Error initializing database: {str(e)}")
-            try:
-                db.session.rollback()
-            except:
-                pass
+            db.session.rollback()
             return False
             
         finally:
