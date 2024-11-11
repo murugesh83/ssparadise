@@ -13,13 +13,18 @@ def init_database():
             # Clean up any existing sessions
             db.session.remove()
             
-            # Drop existing tables
+            # Drop all tables if they exist
+            logger.info("Dropping existing tables...")
             db.drop_all()
+            db.session.commit()
             
-            # Create new tables
+            # Create all tables
+            logger.info("Creating new tables...")
             db.create_all()
+            db.session.commit()
             
             # Create admin user
+            logger.info("Creating admin user...")
             admin = User(
                 email='admin@ssparadise.com',
                 name='Admin',
@@ -27,7 +32,7 @@ def init_database():
             )
             admin.set_password('admin123')
             
-            # Add admin in a fresh transaction
+            # Add admin user
             db.session.add(admin)
             db.session.commit()
             
