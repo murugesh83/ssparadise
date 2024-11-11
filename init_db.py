@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 def init_database():
     with app.app_context():
         try:
-            # Clean up any existing sessions
+            # Clean up existing sessions
             db.session.remove()
             db.engine.dispose()
             
@@ -19,7 +19,7 @@ def init_database():
             db.create_all()
             db.session.commit()
             
-            # Create admin user
+            # Create admin user with correct credentials
             admin = User(
                 email='admin@ssparadise.com',
                 name='Admin',
