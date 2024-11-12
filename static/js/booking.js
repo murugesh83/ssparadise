@@ -41,19 +41,30 @@ document.addEventListener('DOMContentLoaded', function() {
                     body: formData
                 });
                 
+                if (response.redirected) {
+                    window.location.href = response.url;
+                    return;
+                }
+                
                 if (!response.ok) {
                     throw new Error('Failed to submit booking');
                 }
                 
-                const result = await response.json();
-                if (result.success) {
-                    window.location.href = result.redirect_url;
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const result = await response.json();
+                    if (result.success) {
+                        window.location.href = result.redirect_url;
+                    } else {
+                        throw new Error(result.error || 'Error processing booking');
+                    }
                 } else {
-                    showAlert(result.error || 'Error processing booking', 'danger');
+                    // Handle non-JSON response (likely a redirect)
+                    window.location.href = response.url;
                 }
             } catch (error) {
                 console.error('Error:', error);
-                showAlert('An error occurred. Please try again.', 'danger');
+                showAlert(error.message || 'An error occurred. Please try again.', 'danger');
             } finally {
                 submitButton.disabled = false;
                 submitButton.innerHTML = 'Confirm Booking';
@@ -64,7 +75,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Helper function to show alerts
 function showAlert(message, type = 'warning') {
-    const container = document.querySelector('.container') || document.body;
+    const container = document.querySelector('.container');
+    if (!container) return;  // Exit if no container found
+    
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
     alertDiv.innerHTML = `
@@ -75,6 +88,8 @@ function showAlert(message, type = 'warning') {
     container.insertBefore(alertDiv, container.firstChild);
     
     setTimeout(() => {
-        alertDiv.remove();
+        if (alertDiv && alertDiv.parentNode) {
+            alertDiv.remove();
+        }
     }, 5000);
 }

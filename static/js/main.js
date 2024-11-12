@@ -200,7 +200,9 @@ function filterRoomsBySearchTerm(searchTerm, counter) {
 
 // Show alert messages
 function showAlert(message, type = 'warning') {
-    const container = document.querySelector('.container') || document.body;
+    const container = document.querySelector('.container');
+    if (!container) return;  // Exit if no container found
+    
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
     alertDiv.innerHTML = `
@@ -211,7 +213,9 @@ function showAlert(message, type = 'warning') {
     container.insertBefore(alertDiv, container.firstChild);
     
     setTimeout(() => {
-        alertDiv.remove();
+        if (alertDiv && alertDiv.parentNode) {
+            alertDiv.remove();
+        }
     }, 5000);
 }
 

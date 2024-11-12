@@ -11,6 +11,12 @@ import stripe
 from sqlalchemy import func, and_, not_, or_
 import json
 
+@app.route('/rooms/<int:room_id>')
+def room_detail(room_id):
+    """Display detailed information about a specific room"""
+    room = Room.query.get_or_404(room_id)
+    return render_template('room_detail.html', room=room)
+
 @app.route('/api/check-room-availability', methods=['POST'])
 def check_room_availability():
     """API endpoint to check room availability for given dates"""
