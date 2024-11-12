@@ -158,7 +158,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python init_db.py && python seed_rooms.py"
+args = "python init_db.py"
 
 [[workflows.workflow]]
 name = "Database Setup"
