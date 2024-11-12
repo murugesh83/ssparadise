@@ -2,8 +2,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const bookingForm = document.querySelector('#bookingForm');
     const checkInInput = document.querySelector('#check_in');
     const checkOutInput = document.querySelector('#check_out');
-    const payNowOption = document.querySelector('#pay_now');
-    const payLaterOption = document.querySelector('#pay_later');
     
     if (bookingForm && checkInInput && checkOutInput) {
         // Set minimum dates
@@ -30,89 +28,43 @@ document.addEventListener('DOMContentLoaded', function() {
         bookingForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const roomId = document.querySelector('#room_id')?.value;
-            const checkIn = checkInInput.value;
-            const checkOut = checkOutInput.value;
-            const guestName = document.querySelector('#name')?.value;
-            const guestEmail = document.querySelector('#email')?.value;
-            const guests = document.querySelector('#guests')?.value;
-            const paymentOption = document.querySelector('input[name="payment_option"]:checked')?.value;
-
-            // Validate form fields
-            if (!roomId || !checkIn || !checkOut || !guestName || !guestEmail || !guests || !paymentOption) {
-                showAlert('Please fill in all required fields', 'warning');
-                return;
-            }
-
-            // Show loading state
-            const submitButton = bookingForm.querySelector('button[type="submit"]');
+            const submitButton = this.querySelector('button[type="submit"]');
             if (!submitButton) return;
-
-            const originalButtonText = submitButton.innerHTML;
+            
             submitButton.disabled = true;
             submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
-
+            
             try {
-                const response = await fetch('/api/check-room-availability', {
+                const formData = new FormData(this);
+                const response = await fetch(this.action, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        room_id: roomId,
-                        check_in: checkIn,
-                        check_out: checkOut
-                    })
+                    body: formData
                 });
-
-                const data = await response.json();
                 
                 if (!response.ok) {
-                    throw new Error(data.error || 'Error checking availability');
+                    throw new Error('Failed to submit booking');
                 }
                 
-                if (!data.success || !data.available_rooms.includes(parseInt(roomId))) {
-                    const errorMessage = data.error || 'Sorry, this room is not available for the selected dates.';
-                    showAlert(errorMessage, 'warning');
-                    submitButton.disabled = false;
-                    submitButton.innerHTML = originalButtonText;
-                    return;
+                const result = await response.json();
+                if (result.success) {
+                    window.location.href = result.redirect_url;
+                } else {
+                    showAlert(result.error || 'Error processing booking', 'danger');
                 }
-                
-                // If available, submit the form
-                bookingForm.submit();
             } catch (error) {
                 console.error('Error:', error);
-                showAlert(error.message || 'An error occurred. Please try again.', 'danger');
+                showAlert('An error occurred. Please try again.', 'danger');
+            } finally {
                 submitButton.disabled = false;
-                submitButton.innerHTML = originalButtonText;
+                submitButton.innerHTML = 'Confirm Booking';
             }
         });
-
-        // Payment option selection handler
-        const paymentOptions = document.querySelectorAll('input[name="payment_option"]');
-        if (paymentOptions.length > 0) {
-            paymentOptions.forEach(option => {
-                option.addEventListener('change', function() {
-                    const submitButton = bookingForm.querySelector('button[type="submit"]');
-                    if (submitButton) {
-                        if (this.value === 'now') {
-                            submitButton.innerHTML = '<i class="bi bi-credit-card me-2"></i>Proceed to Payment';
-                        } else {
-                            submitButton.innerHTML = '<i class="bi bi-calendar-check me-2"></i>Confirm Booking';
-                        }
-                    }
-                });
-            });
-        }
     }
 });
 
 // Helper function to show alerts
 function showAlert(message, type = 'warning') {
-    const form = document.querySelector('#bookingForm');
-    if (!form) return;
-
+    const container = document.querySelector('.container') || document.body;
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
     alertDiv.innerHTML = `
@@ -120,9 +72,8 @@ function showAlert(message, type = 'warning') {
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
     
-    form.insertAdjacentElement('beforebegin', alertDiv);
+    container.insertBefore(alertDiv, container.firstChild);
     
-    // Auto dismiss after 5 seconds
     setTimeout(() => {
         alertDiv.remove();
     }, 5000);
