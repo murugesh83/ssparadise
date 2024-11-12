@@ -2,81 +2,74 @@ from flask import render_template, request, jsonify, flash, redirect, url_for
 from flask_login import login_user, logout_user, login_required, current_user
 from app import app, db
 from models import Room, Booking, Contact, User, Review
-from datetime import datetime, timedelta
+from datetime import datetime
 from email_validator import validate_email, EmailNotValidError
 from payment import create_payment_intent, confirm_payment, process_refund
 from utils import admin_required
 from email_utils import send_booking_confirmation, send_booking_status_update
 import stripe
-from sqlalchemy import func, and_, not_, or_
-import json
-
-@app.route('/rooms/<int:room_id>')
-def room_detail(room_id):
-    """Display detailed information about a specific room"""
-    room = Room.query.get_or_404(room_id)
-    return render_template('room_detail.html', room=room)
+from sqlalchemy import func, and_, not_
 
 @app.route('/api/check-room-availability', methods=['POST'])
 def check_room_availability():
     """API endpoint to check room availability for given dates"""
     try:
         data = request.get_json()
-        if not data:
-            return jsonify({'success': False, 'error': 'Invalid request data'}), 400
+        if not data or 'check_in' not in data or 'check_out' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Missing required date parameters'
+            }), 400
 
-        # Validate required fields
-        check_in_str = data.get('check_in')
-        check_out_str = data.get('check_out')
-        if not check_in_str or not check_out_str:
-            return jsonify({'success': False, 'error': 'Missing required date parameters'}), 400
-
-        # Parse and validate dates
         try:
-            check_in = datetime.strptime(check_in_str, '%Y-%m-%d').date()
-            check_out = datetime.strptime(check_out_str, '%Y-%m-%d').date()
+            check_in = datetime.strptime(data['check_in'], '%Y-%m-%d').date()
+            check_out = datetime.strptime(data['check_out'], '%Y-%m-%d').date()
         except ValueError:
-            return jsonify({'success': False, 'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+            return jsonify({
+                'success': False,
+                'error': 'Invalid date format. Please use YYYY-MM-DD format.'
+            }), 400
 
-        # Validate date logic
-        today = datetime.now().date()
-        if check_in < today:
-            return jsonify({'success': False, 'error': 'Check-in date cannot be in the past'}), 400
+        room_id = data.get('room_id')  # Optional, if checking specific room
 
         if check_in >= check_out:
-            return jsonify({'success': False, 'error': 'Check-in date must be before check-out date'}), 400
+            return jsonify({
+                'success': False,
+                'error': 'Check-in date must be before check-out date'
+            }), 400
 
-        if (check_out - check_in).days > 30:
-            return jsonify({'success': False, 'error': 'Maximum booking duration is 30 days'}), 400
+        if check_in < datetime.now().date():
+            return jsonify({
+                'success': False,
+                'error': 'Check-in date cannot be in the past'
+            }), 400
 
-        # Get specific room if requested
-        room_id = data.get('room_id')
-        
-        # Query available rooms
+        # Base query for available rooms
         query = Room.query.filter_by(available=True)
+        
+        # If room_id is provided, check only that room
         if room_id:
             query = query.filter(Room.id == room_id)
 
+        # Get all rooms that match the criteria
         rooms = query.all()
         available_rooms = []
         rooms_count = {}
 
         for room in rooms:
-            # Count existing bookings for these dates
-            booked_count = db.session.query(func.coalesce(func.sum(Booking.room_quantity), 0)).filter(
+            # Count existing bookings for these dates considering room_quantity
+            booked_rooms = db.session.query(func.sum(Booking.room_quantity)).filter(
                 Booking.room_id == room.id,
                 Booking.status == 'confirmed',
-                not_(or_(
-                    Booking.check_out <= check_in,
-                    Booking.check_in >= check_out
-                ))
-            ).scalar()
+                Booking.check_in < check_out,
+                Booking.check_out > check_in
+            ).scalar() or 0
 
             # Calculate available rooms
-            available = room.total_rooms - int(booked_count or 0)
+            available = room.total_rooms - booked_rooms
             if available > 0:
                 available_rooms.append(room.id)
-                rooms_count[str(room.id)] = available
+                rooms_count[room.id] = available
 
         return jsonify({
             'success': True,
@@ -84,17 +77,41 @@ def check_room_availability():
             'rooms_count': rooms_count
         })
 
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': 'Invalid date format'
+        }), 400
     except Exception as e:
         app.logger.error(f"Error checking room availability: {str(e)}")
         return jsonify({
             'success': False,
-            'error': 'An error occurred while checking availability'
+            'error': 'Error checking room availability'
         }), 500
+
+@app.route('/rooms')
+def rooms():
+    """Display all available rooms with filtering capability"""
+    rooms = Room.query.filter_by(available=True).all()
+    return render_template('rooms.html', rooms=rooms)
+
+@app.route('/room/<int:room_id>')
+def room_detail(room_id):
+    room = Room.query.get_or_404(room_id)
+    reviews = Review.query.filter_by(room_id=room_id).order_by(Review.created_at.desc()).all()
+    can_review = False
+    if current_user.is_authenticated:
+        completed_bookings = Booking.query.filter_by(
+            user_id=current_user.id,
+            room_id=room_id,
+            status='confirmed'
+        ).filter(Booking.check_out < datetime.now().date()).all()
+        can_review = len(completed_bookings) > 0
+    return render_template('room_detail.html', room=room, reviews=reviews, can_review=can_review)
 
 @app.route('/booking/<int:room_id>', methods=['GET', 'POST'])
 @login_required
 def booking(room_id):
-    """Handle room booking process"""
     room = Room.query.get_or_404(room_id)
     
     if request.method == 'POST':
@@ -103,10 +120,10 @@ def booking(room_id):
             check_in = datetime.strptime(request.form['check_in'], '%Y-%m-%d').date()
             check_out = datetime.strptime(request.form['check_out'], '%Y-%m-%d').date()
             guests = int(request.form['guests'])
-            room_quantity = int(request.form.get('room_quantity', 1))
+            room_quantity = int(request.form['room_quantity'])
             guest_name = request.form['name'].strip()
             guest_email = request.form['email'].strip()
-            payment_option = request.form.get('payment_option', 'now')
+            payment_option = request.form['payment_option']
 
             # Validate dates
             if check_in >= check_out:
@@ -129,52 +146,48 @@ def booking(room_id):
                 flash('Please enter a valid email address', 'error')
                 return redirect(url_for('booking', room_id=room_id))
             
-            # Check room availability
-            booked_rooms = db.session.query(
-                func.coalesce(func.sum(Booking.room_quantity), 0)
-            ).filter(
+            # Verify room availability for the requested quantity
+            existing_bookings = Booking.query.filter(
                 Booking.room_id == room_id,
                 Booking.status == 'confirmed',
-                not_(or_(
-                    Booking.check_out <= check_in,
-                    Booking.check_in >= check_out
-                ))
-            ).scalar()
+                Booking.check_in < check_out,
+                Booking.check_out > check_in
+            ).with_entities(func.sum(Booking.room_quantity)).scalar() or 0
             
-            available_rooms = room.total_rooms - int(booked_rooms or 0)
-            if room_quantity > available_rooms:
-                flash(f'Only {available_rooms} room(s) available for the selected dates.', 'error')
+            if existing_bookings + room_quantity > room.total_rooms:
+                flash('Not enough rooms available for the selected dates.', 'error')
                 return redirect(url_for('booking', room_id=room_id))
             
-            # Calculate total amount
+            # Calculate total amount based on room quantity
             days = (check_out - check_in).days
             amount = room.price * days * room_quantity
             
             # Create booking
-            booking = Booking(
-                room_id=room_id,
-                user_id=current_user.id,
-                guest_name=guest_name,
-                guest_email=guest_email,
-                check_in=check_in,
-                check_out=check_out,
-                guests=guests,
-                room_quantity=room_quantity,
-                payment_option=payment_option,
-                status='pending',
-                payment_status='pending',
-                created_at=datetime.utcnow()
-            )
+            booking = Booking()
+            booking.room_id = room_id
+            booking.user_id = current_user.id
+            booking.guest_name = guest_name
+            booking.guest_email = guest_email
+            booking.check_in = check_in
+            booking.check_out = check_out
+            booking.guests = guests
+            booking.room_quantity = room_quantity
+            booking.payment_option = payment_option
+            booking.status = 'pending'
+            booking.payment_status = 'pending'
             
             db.session.add(booking)
             db.session.commit()
             
-            # Handle payment
+            # Handle payment based on option
             if payment_option == 'now':
                 try:
+                    # Create payment intent with updated amount
                     intent = create_payment_intent(amount)
                     booking.payment_intent_id = intent.id
                     db.session.commit()
+                    
+                    # Redirect to payment page
                     return redirect(url_for('payment', booking_id=booking.id))
                 except Exception as e:
                     app.logger.error(f"Payment error: {str(e)}")
@@ -183,7 +196,7 @@ def booking(room_id):
                     flash('Error processing payment. Please try again.', 'error')
                     return redirect(url_for('booking', room_id=room_id))
             else:
-                # Pay later option
+                # For pay later option
                 booking.status = 'confirmed'
                 db.session.commit()
                 
@@ -207,36 +220,18 @@ def booking(room_id):
             
     return render_template('booking.html', room=room)
 
-@app.route('/admin/dashboard')
+@app.route('/my-bookings')
 @login_required
-@admin_required
-def admin_dashboard():
-    try:
-        stats = {
-            'total_rooms': Room.query.count(),
-            'active_bookings': Booking.query.filter_by(status='confirmed').count(),
-            'daily_revenue': db.session.query(func.sum(Room.price)).join(Booking).filter(
-                Booking.status == 'confirmed',
-                Booking.check_in <= datetime.now().date(),
-                Booking.check_out > datetime.now().date()
-            ).scalar() or 0,
-            'occupancy_rate': (Booking.query.filter_by(status='confirmed')
-                            .filter(Booking.check_in <= datetime.now().date())
-                            .filter(Booking.check_out > datetime.now().date())
-                            .count() / max(Room.query.count(), 1)) * 100
-        }
-        recent_activity = Booking.query.order_by(Booking.created_at.desc()).limit(10).all()
-        return render_template('admin/dashboard.html', stats=stats, recent_activity=recent_activity)
-    except Exception as e:
-        app.logger.error(f"Error in admin dashboard: {str(e)}")
-        flash('Error loading dashboard', 'error')
-        return redirect(url_for('index'))
+def my_bookings():
+    bookings = Booking.query.filter_by(user_id=current_user.id).order_by(Booking.created_at.desc()).all()
+    return render_template('my_bookings.html', bookings=bookings)
 
 @app.route('/bookings/<int:booking_id>/cancel', methods=['POST'])
 @login_required
 def cancel_booking(booking_id):
     try:
         booking = Booking.query.get_or_404(booking_id)
+        
         if booking.user_id != current_user.id:
             flash('Unauthorized access', 'error')
             return redirect(url_for('my_bookings'))
@@ -253,25 +248,169 @@ def cancel_booking(booking_id):
         booking.cancelled_at = datetime.utcnow()
         booking.cancellation_reason = request.form.get('cancellation_reason')
         
+        if booking.payment_status == 'completed':
+            try:
+                refund = process_refund(booking.payment_intent_id, booking.refund_amount_available)
+                if refund:
+                    booking.refund_status = 'completed'
+                    booking.refund_amount = booking.refund_amount_available
+            except Exception as e:
+                app.logger.error(f"Refund processing error: {str(e)}")
+                booking.refund_status = 'failed'
+        
         db.session.commit()
         
         try:
-            send_booking_status_update(booking)
-            flash('Booking cancelled successfully', 'success')
+            if send_booking_status_update(booking):
+                flash('Booking cancelled successfully. Check your email for details.', 'success')
+            else:
+                flash('Booking cancelled but email notification failed.', 'warning')
         except Exception as e:
             app.logger.error(f"Error sending cancellation email: {str(e)}")
-            flash('Booking cancelled but email notification failed', 'warning')
+            flash('Booking cancelled but email notification failed.', 'warning')
             
         return redirect(url_for('my_bookings'))
             
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error cancelling booking: {str(e)}")
-        flash('Error cancelling booking', 'error')
+        flash('Error cancelling booking. Please try again.', 'error')
         return redirect(url_for('my_bookings'))
 
-@app.route('/rooms')
-def rooms():
-    """Display all available rooms with filtering capability"""
-    rooms = Room.query.filter_by(available=True).all()
-    return render_template('rooms.html', rooms=rooms)
+@app.route('/admin/dashboard')
+@login_required
+@admin_required
+def admin_dashboard():
+    try:
+        # Calculate statistics
+        stats = {
+            'total_rooms': Room.query.count(),
+            'active_bookings': Booking.query.filter_by(status='confirmed').count(),
+            'daily_revenue': db.session.query(func.sum(Room.price)).join(Booking).filter(
+                Booking.status == 'confirmed',
+                Booking.check_in <= datetime.now().date(),
+                Booking.check_out > datetime.now().date()
+            ).scalar() or 0,
+            'occupancy_rate': (Booking.query.filter_by(status='confirmed')
+                            .filter(Booking.check_in <= datetime.now().date())
+                            .filter(Booking.check_out > datetime.now().date())
+                            .count() / max(Room.query.count(), 1)) * 100
+        }
+        
+        # Get recent activity (last 10 bookings)
+        recent_activity = Booking.query.order_by(Booking.created_at.desc()).limit(10).all()
+        
+        return render_template('admin/dashboard.html',
+                            stats=stats,
+                            recent_activity=recent_activity)
+    except Exception as e:
+        app.logger.error(f"Error in admin dashboard: {str(e)}")
+        flash('Error loading dashboard', 'error')
+        return redirect(url_for('index'))
+
+@app.route('/admin/rooms')
+@login_required
+@admin_required
+def admin_rooms():
+    rooms = Room.query.all()
+    return render_template('admin/rooms.html', rooms=rooms)
+
+@app.route('/admin/rooms/add', methods=['POST'])
+@login_required
+@admin_required
+def admin_add_room():
+    try:
+        room = Room()
+        room.name = request.form.get('name')
+        room.description = request.form.get('description')
+        room.price = float(request.form.get('price'))
+        room.capacity = int(request.form.get('capacity'))
+        room.room_type = request.form.get('room_type')
+        room.total_rooms = int(request.form.get('total_rooms', 1))
+        room.image_url = request.form.get('image_url')
+        room.available = bool(request.form.get('available'))
+        room.amenities = ['Air Conditioning', 'Free Wi-Fi', 'LED TV', 'Attached Bathroom']
+        
+        db.session.add(room)
+        db.session.commit()
+        flash('Room added successfully', 'success')
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error adding room: {str(e)}")
+        flash('Error adding room', 'error')
+    return redirect(url_for('admin_rooms'))
+
+@app.route('/admin/rooms/<int:room_id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_edit_room(room_id):
+    room = Room.query.get_or_404(room_id)
+    if request.method == 'POST':
+        try:
+            room.name = request.form.get('name')
+            room.description = request.form.get('description')
+            room.price = float(request.form.get('price'))
+            room.capacity = int(request.form.get('capacity'))
+            room.room_type = request.form.get('room_type')
+            room.total_rooms = int(request.form.get('total_rooms', 1))
+            room.image_url = request.form.get('image_url')
+            room.available = bool(request.form.get('available'))
+            db.session.commit()
+            flash('Room updated successfully', 'success')
+            return redirect(url_for('admin_rooms'))
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error updating room: {str(e)}")
+            flash('Error updating room', 'error')
+    return render_template('admin/edit_room.html', room=room)
+
+@app.route('/admin/rooms/<int:room_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def admin_delete_room(room_id):
+    try:
+        room = Room.query.get_or_404(room_id)
+        db.session.delete(room)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting room: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/admin/bookings')
+@login_required
+@admin_required
+def admin_bookings():
+    # Get all bookings ordered by creation date
+    bookings = Booking.query.order_by(Booking.created_at.desc()).all()
+    return render_template('admin/bookings.html', bookings=bookings)
+
+@app.route('/admin/bookings/<int:booking_id>/update', methods=['POST'])
+@login_required
+@admin_required
+def admin_update_booking(booking_id):
+    try:
+        booking = Booking.query.get_or_404(booking_id)
+        data = request.get_json()
+        new_status = data.get('status')
+        
+        if new_status not in ['confirmed', 'cancelled']:
+            return jsonify({'success': False, 'error': 'Invalid status'}), 400
+            
+        booking.status = new_status
+        if new_status == 'cancelled':
+            booking.cancelled_at = datetime.utcnow()
+            
+        db.session.commit()
+        
+        # Send email notification
+        if send_booking_status_update(booking):
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': True, 'warning': 'Email notification failed'})
+            
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating booking: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500

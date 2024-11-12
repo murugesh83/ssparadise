@@ -2,6 +2,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const bookingForm = document.querySelector('#bookingForm');
     const checkInInput = document.querySelector('#check_in');
     const checkOutInput = document.querySelector('#check_out');
+    const payNowOption = document.querySelector('#pay_now');
+    const payLaterOption = document.querySelector('#pay_later');
     
     if (bookingForm && checkInInput && checkOutInput) {
         // Set minimum dates
@@ -28,56 +30,89 @@ document.addEventListener('DOMContentLoaded', function() {
         bookingForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const submitButton = this.querySelector('button[type="submit"]');
+            const roomId = document.querySelector('#room_id')?.value;
+            const checkIn = checkInInput.value;
+            const checkOut = checkOutInput.value;
+            const guestName = document.querySelector('#name')?.value;
+            const guestEmail = document.querySelector('#email')?.value;
+            const guests = document.querySelector('#guests')?.value;
+            const paymentOption = document.querySelector('input[name="payment_option"]:checked')?.value;
+
+            // Validate form fields
+            if (!roomId || !checkIn || !checkOut || !guestName || !guestEmail || !guests || !paymentOption) {
+                showAlert('Please fill in all required fields', 'warning');
+                return;
+            }
+
+            // Show loading state
+            const submitButton = bookingForm.querySelector('button[type="submit"]');
             if (!submitButton) return;
-            
+
+            const originalButtonText = submitButton.innerHTML;
             submitButton.disabled = true;
             submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
-            
+
             try {
-                const formData = new FormData(this);
-                const response = await fetch(this.action, {
+                const response = await fetch('/api/check-room-availability', {
                     method: 'POST',
-                    body: formData
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        room_id: roomId,
+                        check_in: checkIn,
+                        check_out: checkOut
+                    })
                 });
+
+                const data = await response.json();
                 
-                if (response.redirected) {
-                    window.location.href = response.url;
+                if (!response.ok) {
+                    throw new Error(data.error || 'Error checking availability');
+                }
+                
+                if (!data.success || !data.available_rooms.includes(parseInt(roomId))) {
+                    const errorMessage = data.error || 'Sorry, this room is not available for the selected dates.';
+                    showAlert(errorMessage, 'warning');
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalButtonText;
                     return;
                 }
                 
-                if (!response.ok) {
-                    throw new Error('Failed to submit booking');
-                }
-                
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    const result = await response.json();
-                    if (result.success) {
-                        window.location.href = result.redirect_url;
-                    } else {
-                        throw new Error(result.error || 'Error processing booking');
-                    }
-                } else {
-                    // Handle non-JSON response (likely a redirect)
-                    window.location.href = response.url;
-                }
+                // If available, submit the form
+                bookingForm.submit();
             } catch (error) {
                 console.error('Error:', error);
                 showAlert(error.message || 'An error occurred. Please try again.', 'danger');
-            } finally {
                 submitButton.disabled = false;
-                submitButton.innerHTML = 'Confirm Booking';
+                submitButton.innerHTML = originalButtonText;
             }
         });
+
+        // Payment option selection handler
+        const paymentOptions = document.querySelectorAll('input[name="payment_option"]');
+        if (paymentOptions.length > 0) {
+            paymentOptions.forEach(option => {
+                option.addEventListener('change', function() {
+                    const submitButton = bookingForm.querySelector('button[type="submit"]');
+                    if (submitButton) {
+                        if (this.value === 'now') {
+                            submitButton.innerHTML = '<i class="bi bi-credit-card me-2"></i>Proceed to Payment';
+                        } else {
+                            submitButton.innerHTML = '<i class="bi bi-calendar-check me-2"></i>Confirm Booking';
+                        }
+                    }
+                });
+            });
+        }
     }
 });
 
 // Helper function to show alerts
 function showAlert(message, type = 'warning') {
-    const container = document.querySelector('.container');
-    if (!container) return;  // Exit if no container found
-    
+    const form = document.querySelector('#bookingForm');
+    if (!form) return;
+
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
     alertDiv.innerHTML = `
@@ -85,11 +120,10 @@ function showAlert(message, type = 'warning') {
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
     
-    container.insertBefore(alertDiv, container.firstChild);
+    form.insertAdjacentElement('beforebegin', alertDiv);
     
+    // Auto dismiss after 5 seconds
     setTimeout(() => {
-        if (alertDiv && alertDiv.parentNode) {
-            alertDiv.remove();
-        }
+        alertDiv.remove();
     }, 5000);
 }
