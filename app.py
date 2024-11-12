@@ -2,9 +2,11 @@ import os
 from flask import Flask, render_template, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.exc import OperationalError
 from flask_login import LoginManager
 from email_utils import init_mail_app
 from datetime import datetime
+from time import sleep
 
 class Base(DeclarativeBase):
     pass
@@ -24,6 +26,20 @@ app.config["DEBUG"] = True
 app.config["STRIPE_PUBLISHABLE_KEY"] = os.environ.get("STRIPE_PUBLISHABLE_KEY")
 app.config["STRIPE_SECRET_KEY"] = os.environ.get("STRIPE_SECRET_KEY")
 app.config["STRIPE_WEBHOOK_SECRET"] = os.environ.get("STRIPE_WEBHOOK_SECRET", "whsec_test")
+
+def get_db():
+    max_retries = 3
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        try:
+            return db.session
+        except OperationalError:
+            retry_count += 1
+            if retry_count == max_retries:
+                raise
+            sleep(1)
+            db.session.remove()
 
 # Initialize extensions
 db.init_app(app)
