@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+.cache/
+.local/
+.upm/
+instance/
+.DS_Store
+replit_zip_error_log.txt

@@ -3,15 +3,47 @@
 {% block title %}Welcome{% endblock %}
 
 {% block content %}
-<div class="hero-section text-center">
+<div class="hero-section">
     <div class="container">
-        <h2>Experience Our Luxurious Rooms in Tiruvannamalai</h2>
-        <p>SS Paradise Residency is a newly established sanctuary offering luxurious A/C rooms in Tiruvannamalai, India.</p>
-        <a href="/rooms" class="btn btn-primary btn-lg">View Our Rooms</a>
+        <div class="row align-items-center">
+            <div class="col-lg-7 text-lg-start text-center mb-4 mb-lg-0">
+                <h2>Experience Our Luxurious Rooms in Tiruvannamalai</h2>
+                <p>SS Paradise Residency is a newly established sanctuary offering luxurious A/C rooms in
+                    Tiruvannamalai, India.</p>
+                <a href="/rooms" class="btn btn-primary btn-lg">View Our Rooms</a>
+            </div>
+            <div class="col-lg-5">
+                <div class="card bg-dark bg-opacity-75 border-secondary">
+                    <div class="card-body">
+                        <h4 class="mb-3 text-center">Contact Us</h4>
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('static', filename='image/business-card.jpg') }}"
+                                class="btn btn-outline-info" target="_blank">
+                                <i class="bi bi-card-image me-2"></i>Download Business Card
+                            </a>
+                            <a href="tel:+919789539756" class="btn btn-outline-success">
+                                <i class="bi bi-telephone-fill me-2"></i>Call Now
+                            </a>
+                            <a href="https://www.google.com/maps/place/SS+Paradise+Residency/@12.2250289,79.0611815,17z/data=!4m20!1m10!3m9!1s0x3bacc103eacf3381:0x7ebc040b37d64843!2sSS+Paradise+Residency!5m2!4m1!1i2!8m2!3d12.2250289!4d79.0611815!16s%2Fg%2F11wqnf3f91!3m8!1s0x3bacc103eacf3381:0x7ebc040b37d64843!5m2!4m1!1i2!8m2!3d12.2250289!4d79.0611815!16s%2Fg%2F11wqnf3f91?entry=ttu&g_ep=EgoyMDI1MDUyOC4wIKXMDSoASAFQAw%3D%3D"
+                                class="btn btn-outline-primary" target="_blank">
+                                <i class="bi bi-geo-alt-fill me-2"></i>Get Directions
+                            </a>
+                        </div>
+                        <div class="mt-3 text-center">
+                            <p class="mb-0"><strong>+91 97895 39756</strong></p>
+                            <p class="mb-0">ssparadisehotels@gmail.com</p>
+                            <p class="text-muted small">No. 1/1, 2nd Street, VOC Nagar, Tiruvannamalai</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <div class="container section-spacing">
+
+
     <h2 class="text-center mb-4">Featured Rooms</h2>
     <div class="row">
         {% for room in featured_rooms %}
@@ -23,13 +55,13 @@
                     <p class="room-type text-muted">{{ room.room_type }}</p>
                     <div class="mb-2">
                         {% for i in range(5) %}
-                            {% if i < room.average_rating|round(0, 'floor') %}
-                                <i class="bi bi-star-fill text-warning"></i>
+                        {% if i < room.average_rating|round(0, 'floor' ) %} <i class="bi bi-star-fill text-warning"></i>
                             {% else %}
-                                <i class="bi bi-star text-warning"></i>
+                            <i class="bi bi-star text-warning"></i>
                             {% endif %}
-                        {% endfor %}
-                        <span class="ms-1">{{ "%.1f"|format(room.average_rating) }} ({{ room.reviews|length }})</span>
+                            {% endfor %}
+                            <span class="ms-1">{{ "%.1f"|format(room.average_rating) }} ({{ room.reviews|length
+                                }})</span>
                     </div>
                     <p class="card-text">{{ room.description[:100] }}...</p>
                     <div class="d-flex justify-content-between align-items-center">
@@ -39,7 +71,8 @@
                 </div>
                 <div class="card-footer bg-transparent border-top-0">
                     <div class="d-flex justify-content-between">
-                        <a href="{{ url_for('room_detail', room_id=room.id) }}" class="btn btn-outline-primary">View Details</a>
+                        <a href="{{ url_for('room_detail', room_id=room.id) }}" class="btn btn-outline-primary">View
+                            Details</a>
                         <a href="{{ url_for('booking', room_id=room.id) }}" class="btn btn-primary">Book Now</a>
                     </div>
                 </div>
@@ -55,20 +88,72 @@
 </div>
 
 <div class="container section-spacing">
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="text-center mb-4">Our Gallery</h2>
+            <div class="row g-3">
+                <div class="col-md-4 col-6">
+                    <img src="{{ url_for('static', filename='image/exterior_1.jpg') }}"
+                        class="img-fluid rounded shadow-sm w-100 h-100 object-fit-cover" alt="Exterior View">
+                </div>
+                <div class="col-md-4 col-6">
+                    <img src="{{ url_for('static', filename='image/room_1.jpg') }}"
+                        class="img-fluid rounded shadow-sm w-100 h-100 object-fit-cover" alt="Deluxe Room">
+                </div>
+                <div class="col-md-4 col-6">
+                    <img src="{{ url_for('static', filename='image/reception.jpg') }}"
+                        class="img-fluid rounded shadow-sm w-100 h-100 object-fit-cover" alt="Reception">
+                </div>
+                <div class="col-md-4 col-6">
+                    <img src="{{ url_for('static', filename='image/room_2.jpg') }}"
+                        class="img-fluid rounded shadow-sm w-100 h-100 object-fit-cover" alt="Twin Room">
+                </div>
+                <div class="col-md-4 col-6">
+                    <img src="{{ url_for('static', filename='image/exterior_2.jpg') }}"
+                        class="img-fluid rounded shadow-sm w-100 h-100 object-fit-cover" alt="Building">
+                </div>
+                <div class="col-md-4 col-6">
+                    <img src="{{ url_for('static', filename='image/bathroom.jpg') }}"
+                        class="img-fluid rounded shadow-sm w-100 h-100 object-fit-cover" alt="Bathroom">
+                </div>
+                <div class="col-md-4 col-6">
+                    <img src="{{ url_for('static', filename='image/bed_mirror.jpg') }}"
+                        class="img-fluid rounded shadow-sm w-100 h-100 object-fit-cover" alt="Double Room with Mirror">
+                </div>
+                <div class="col-md-4 col-6">
+                    <img src="{{ url_for('static', filename='image/bed_triple.jpg') }}"
+                        class="img-fluid rounded shadow-sm w-100 h-100 object-fit-cover" alt="Triple Bed Room">
+                </div>
+                <div class="col-md-4 col-6">
+                    <img src="{{ url_for('static', filename='image/bed_pink.jpg') }}"
+                        class="img-fluid rounded shadow-sm w-100 h-100 object-fit-cover" alt="Twin Room Pink Decor">
+                </div>
+                <div class="col-md-4 col-6">
+                    <img src="{{ url_for('static', filename='image/bed_sink.jpg') }}"
+                        class="img-fluid rounded shadow-sm w-100 h-100 object-fit-cover" alt="Room with Sink">
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <div class="col-md-6">
             <h2>About Us</h2>
-            <p>Nestled in the heart of this spiritual and cultural center, our residency combines comfort with a serene ambiance, providing a unique hospitality experience. Conveniently located just 0.8 km from the renowned Arunachaleswarar Shiva Temple and a mere 300 feet from the tranquil Ramana Ashram.</p>
+            <p>Nestled in the heart of this spiritual and cultural center, our residency combines comfort with a serene
+                ambiance, providing a unique hospitality experience. Conveniently located just 0.8 km from the renowned
+                Arunachaleswarar Shiva Temple and a mere 300 feet from the tranquil Ramana Ashram.</p>
         </div>
         <div class="col-md-6">
             <h2>Our Features</h2>
-            <ul class="list-group">
+            <ul class="list-group mb-4">
                 <li class="list-group-item">Luxurious A/C Rooms</li>
                 <li class="list-group-item">Prime Location</li>
                 <li class="list-group-item">24/7 Room Service</li>
                 <li class="list-group-item">Free Wi-Fi</li>
                 <li class="list-group-item">Modern Amenities</li>
             </ul>
+
+
         </div>
     </div>
 </div>

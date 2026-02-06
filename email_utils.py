@@ -59,7 +59,7 @@ Hotel Information:
 SS Paradise Residency
 Address: Near Arunachaleswarar Temple, Tiruvannamalai
 Email: ssparadisehotels@gmail.com
-Phone: +91 1234567890
+Phone: +91 97895 39756
 Website: https://ssparadise.com
 
 Need assistance? Contact our 24/7 support desk.
@@ -94,7 +94,7 @@ Hotel Information:
 SS Paradise Residency
 Address: Near Arunachaleswarar Temple, Tiruvannamalai
 Email: ssparadisehotels@gmail.com
-Phone: +91 1234567890
+Phone: +91 97895 39756
 
 If you have any questions, please don't hesitate to contact us.
 
