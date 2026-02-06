@@ -20,8 +20,18 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or "ss_paradise_secret_key"
 # Handle Render's Postgres URL compatibility
 database_url = os.environ.get("DATABASE_URL")
-if database_url and database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
+if database_url:
+    print(f"DATABASE_URL found: {database_url[:15]}...")
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+else:
+    print("WARNING: DATABASE_URL not set, falling back to SQLite")
+    # Ensure instance folder exists for SQLite fallback
+    try:
+        os.makedirs(app.instance_path)
+        print(f"Created instance path: {app.instance_path}")
+    except OSError:
+        pass
 
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url or "sqlite:///instance/ssparadise.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
