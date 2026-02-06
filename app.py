@@ -17,7 +17,7 @@ login_manager = LoginManager()
 app = Flask(__name__)
 
 # Configuration settings
-app.secret_key = os.environ.get("FLASK_SECRET_KEY") or "ss_paradise_secret_key"
+app.secret_key = os.environ.get("SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY") or "ss_paradise_secret_key"
 # Handle Render's Postgres URL compatibility
 database_url = os.environ.get("DATABASE_URL")
 if database_url:
