@@ -20,20 +20,22 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY") or "ss_paradise_secret_key"
 # Handle Render's Postgres URL compatibility
 database_url = os.environ.get("DATABASE_URL")
+
 if database_url:
-    print(f"DATABASE_URL found: {database_url[:15]}...")
+    print(f"✅ DATABASE_URL found: {database_url[:15]}...")
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
 else:
-    print("WARNING: DATABASE_URL not set, falling back to SQLite")
-    # Ensure instance folder exists for SQLite fallback
-    try:
-        os.makedirs(app.instance_path)
-        print(f"Created instance path: {app.instance_path}")
-    except OSError:
-        pass
+    print("❌ CRITICAL: DATABASE_URL is NOT set in environment variables.")
+    print("   Please go to Render Dashboard -> Environment -> Add DATABASE_URL")
+    # In production (Render), we should NOT fall back to SQLite as it causes data loss
+    # But to prevent the immediate crash loop, we'll try to use a temp file
+    import tempfile
+    temp_db_path = os.path.join(tempfile.gettempdir(), 'ssparadise.db')
+    print(f"⚠️ Falling back to temporary SQLite at: {temp_db_path}")
+    database_url = f"sqlite:///{temp_db_path}"
 
-app.config["SQLALCHEMY_DATABASE_URI"] = database_url or "sqlite:///instance/ssparadise.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["DEBUG"] = True
 
